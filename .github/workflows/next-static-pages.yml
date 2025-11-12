@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: '20'
       - name: Install deps
-        run: npm ci
+        run: npm install
       - name: Build (static export)
         env:
           NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
