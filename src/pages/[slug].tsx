@@ -23,7 +23,7 @@ export const getStaticPaths = async () => {
 
   return {
     paths: filteredPost.map((row) => `/${row.slug}`),
-    fallback: true,
+    fallback: false, //ture => false
   }
 }
 
@@ -36,7 +36,14 @@ export const getStaticProps: GetStaticProps = async (context) => {
 
   const detailPosts = filterPosts(posts, filter)
   const postDetail = detailPosts.find((t: any) => t.slug === slug)
-  const recordMap = await getRecordMap(postDetail?.id!)
+
+  // ✅ 슬러그에 해당하는 글이 없으면 404
+  if (!postDetail) {
+    return { notFound: true }
+  }
+
+  // ✅ postDetail이 있을 때만 recordMap 요청
+  const recordMap = await getRecordMap(postDetail.id)
 
   await queryClient.prefetchQuery(queryKey.post(`${slug}`), () => ({
     ...postDetail,
@@ -47,9 +54,11 @@ export const getStaticProps: GetStaticProps = async (context) => {
     props: {
       dehydratedState: dehydrate(queryClient),
     },
-    revalidate: CONFIG.revalidateTime,
+    // ❌ ISR 금지: export 모드에서는 revalidate 제거
+    // revalidate: CONFIG.revalidateTime,
   }
 }
+
 
 const DetailPage: NextPageWithLayout = () => {
   const post = usePostQuery()
