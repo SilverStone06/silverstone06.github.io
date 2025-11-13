@@ -24,16 +24,18 @@ const PostDetail: React.FC<Props> = () => {
   const progress = useScroll(articleRef)
 
   const toc: TocItem[] = useMemo(() => {
-    if (!data?.recordMap) return []
+    if (!data?.recordMap?.block) return []
 
-    const blocks = (data.recordMap as any).block ?? {}
-    const firstBlockId = Object.keys(blocks)[0] ?? ""
+    const blocks = (data.recordMap as any).block
+    const firstBlockKey = Object.keys(blocks)[0]
+    const pageBlock = blocks[firstBlockKey]?.value
 
-    const pageId = (data as any).id ?? firstBlockId
-    if (!pageId) return []
+    if (!pageBlock) return []
 
-    return getPageTableOfContents(data.recordMap as any, pageId) as TocItem[]
-  }, [data])
+    // ⚠️ notion-utils의 getPageTableOfContents 시그니처:
+    // getPageTableOfContents(pageBlock, recordMap)
+    return getPageTableOfContents(pageBlock, data.recordMap as any) as TocItem[]
+  }, [data?.recordMap])
 
   if (!data) return null
 
@@ -119,6 +121,27 @@ const StyledWrapper = styled.div`
     margin: 0 auto;
     max-width: 42rem;
   }
+
+  /* 콜아웃 / 인용 블록 폰트 사이즈 & 여백 줄이기 */
+  .notion-callout,
+  .notion-quote {
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .notion-callout .notion-text,
+  .notion-quote .notion-text {
+    font-size: 0.9rem;
+  }
+
+  .notion-callout {
+    padding: 0.6rem 0.75rem;
+  }
+
+  .notion-quote {
+    padding-left: 0.9rem;
+    border-left-width: 3px;
+  }
 `
 
 const StyledTopToc = styled.nav`
@@ -192,7 +215,8 @@ const StyledRightToc = styled.nav`
     }
   }
 
-  @media (max-width: 1200px) {
+  /* 너무 쉽게 안 사라지게 기준 살짝 낮춤 */
+  @media (max-width: 900px) {
     display: none;
   }
 `
