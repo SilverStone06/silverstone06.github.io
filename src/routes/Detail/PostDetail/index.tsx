@@ -32,8 +32,6 @@ const PostDetail: React.FC<Props> = () => {
 
     if (!pageBlock) return []
 
-    // ⚠️ notion-utils의 getPageTableOfContents 시그니처:
-    // getPageTableOfContents(pageBlock, recordMap)
     return getPageTableOfContents(pageBlock, data.recordMap as any) as TocItem[]
   }, [data?.recordMap])
 
@@ -41,6 +39,21 @@ const PostDetail: React.FC<Props> = () => {
 
   const category = (data.category && data.category?.[0]) || undefined
   const topTocItems = toc.filter((item) => item.indentLevel <= 1)
+
+  const handleTocClick = (id: string) => (
+    e: React.MouseEvent<HTMLAnchorElement>
+  ) => {
+    e.preventDefault()
+    if (typeof document === "undefined") return
+
+    const el = document.getElementById(id)
+    if (!el) return
+
+    const yOffset = -80
+    const y = el.getBoundingClientRect().top + window.scrollY + yOffset
+
+    window.scrollTo({ top: y, behavior: "smooth" })
+  }
 
   return (
     <>
@@ -61,7 +74,11 @@ const PostDetail: React.FC<Props> = () => {
           {topTocItems.length > 0 && (
             <StyledTopToc>
               {topTocItems.map((item) => (
-                <a key={item.id} href={`#${item.id}`}>
+                <a
+                  key={item.id}
+                  href={`#${item.id}`}
+                  onClick={handleTocClick(item.id)}
+                >
                   {item.text}
                 </a>
               ))}
@@ -92,7 +109,12 @@ const PostDetail: React.FC<Props> = () => {
                   paddingLeft: `${item.indentLevel * 0.75}rem`,
                 }}
               >
-                <a href={`#${item.id}`}>{item.text}</a>
+                <a
+                  href={`#${item.id}`}
+                  onClick={handleTocClick(item.id)}
+                >
+                  {item.text}
+                </a>
               </li>
             ))}
           </ul>
@@ -122,7 +144,6 @@ const StyledWrapper = styled.div`
     max-width: 42rem;
   }
 
-  /* 콜아웃 / 인용 블록 폰트 사이즈 & 여백 줄이기 */
   .notion-callout,
   .notion-quote {
     font-size: 0.9rem;
@@ -150,15 +171,15 @@ const StyledTopToc = styled.nav`
   border-top: 1px solid rgba(148, 163, 184, 0.4);
   border-bottom: 1px solid rgba(148, 163, 184, 0.4);
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.35rem;
   font-size: 0.875rem;
 
   a {
     color: rgba(100, 116, 139, 1);
     text-decoration: none;
-    padding: 0.25rem 0.5rem;
-    border-radius: 9999px;
+    padding: 0.15rem 0.25rem;
+    border-radius: 0.375rem;
     transition: background-color 0.15s ease, color 0.15s ease;
 
     &:hover {
@@ -215,7 +236,6 @@ const StyledRightToc = styled.nav`
     }
   }
 
-  /* 너무 쉽게 안 사라지게 기준 살짝 낮춤 */
   @media (max-width: 900px) {
     display: none;
   }
