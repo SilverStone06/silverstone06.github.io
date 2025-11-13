@@ -23,19 +23,21 @@ const PostDetail: React.FC<Props> = () => {
   const articleRef = useRef<HTMLDivElement | null>(null)
   const progress = useScroll(articleRef)
 
+  const toc: TocItem[] = useMemo(() => {
+    if (!data?.recordMap) return []
+
+    const blocks = (data.recordMap as any).block ?? {}
+    const firstBlockId = Object.keys(blocks)[0] ?? ""
+
+    const pageId = (data as any).id ?? firstBlockId
+    if (!pageId) return []
+
+    return getPageTableOfContents(data.recordMap as any, pageId) as TocItem[]
+  }, [data])
+
   if (!data) return null
 
   const category = (data.category && data.category?.[0]) || undefined
-
-  const pageId =
-    (data as any).id || Object.keys(data.recordMap.block ?? {})[0] || ""
-
-  const toc: TocItem[] = useMemo(() => {
-    if (!data?.recordMap || !pageId) return []
-    // getPageTableOfContents(recordMap, pageId, options?)
-    return getPageTableOfContents(data.recordMap as any, pageId) as TocItem[]
-  }, [data?.recordMap, pageId])
-
   const topTocItems = toc.filter((item) => item.indentLevel <= 1)
 
   return (
