@@ -20,15 +20,27 @@ export const getPostsFromMd = async (): Promise<TPosts> => {
     return [] as TPosts
   }
 
-  // src/posts 안에 있는 .md 파일 목록
-  const files = fs
-    .readdirSync(POSTS_DIR, { withFileTypes: true })
-    .filter((f) => f.isFile() && f.name.endsWith(".md"))
-    .map((f) => f.name)
+  // src/posts 안에 있는 포스트 폴더 또는 .md 파일 목록
+  const items = fs.readdirSync(POSTS_DIR, { withFileTypes: true })
+  
+  const files: { slug: string; fullPath: string }[] = []
+  
+  for (const item of items) {
+    if (item.isDirectory()) {
+      // 폴더인 경우: {slug}/{slug}.md 형식
+      const slug = item.name
+      const mdPath = path.join(POSTS_DIR, slug, `${slug}.md`)
+      if (fs.existsSync(mdPath)) {
+        files.push({ slug, fullPath: mdPath })
+      }
+    } else if (item.isFile() && item.name.endsWith(".md")) {
+      // 루트에 있는 .md 파일 (구버전 호환)
+      const slugFromFile = item.name.replace(/\.md$/, "")
+      files.push({ slug: slugFromFile, fullPath: path.join(POSTS_DIR, item.name) })
+    }
+  }
 
-  const data = files.map((filename) => {
-    const slugFromFile = filename.replace(/\.md$/, "")
-    const fullPath = path.join(POSTS_DIR, filename)
+  const data = files.map(({ slug: slugFromFile, fullPath }) => {
     const raw = fs.readFileSync(fullPath, "utf8")
 
     const { data: fm, content } = matter(raw)

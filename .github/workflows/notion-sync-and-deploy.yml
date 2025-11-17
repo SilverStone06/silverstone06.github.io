@@ -63,6 +63,8 @@ jobs:
           else
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
+          echo "Changed files:"
+          git status --short src/posts/ || true
 
       - name: Commit and push changes
         if: steps.verify-changed-files.outputs.changed == 'true'
