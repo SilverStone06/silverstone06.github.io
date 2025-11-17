@@ -528,8 +528,11 @@ async function syncNotionToMd() {
     let finalContent = ""
     try {
       finalContent = await convertNotionPageToMarkdown(post.id)
+      console.log(`  [DEBUG] Content length: ${finalContent.length} characters`)
       if (!finalContent) {
         console.warn(`⚠️  No content found for ${post.title}`)
+      } else {
+        console.log(`  [DEBUG] First 200 chars of content: ${finalContent.substring(0, 200)}`)
       }
     } catch (error) {
       console.error(`❌ Failed to convert content for ${post.title}:`, error)
@@ -537,6 +540,7 @@ async function syncNotionToMd() {
     }
 
     const md = matter.stringify(finalContent.trim() + "\n", frontmatter)
+    console.log(`  [DEBUG] Final markdown length: ${md.length} characters`)
     fs.writeFileSync(filePath, md, "utf8")
     console.log(`✅ Created: ${fileName}`)
     
