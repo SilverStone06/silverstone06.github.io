@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.GH_TOKEN || github.token }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -66,12 +66,19 @@ jobs:
 
       - name: Commit and push changes
         if: steps.verify-changed-files.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
         run: |
+          # 저장소 정보 확인
+          echo "Repository: ${{ github.repository }}"
+          echo "Repository URL: https://github.com/${{ github.repository }}.git"
+          
           # Remote URL에 토큰 설정
-          git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}.git
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+          git remote -v
           
           # 변경사항을 임시로 stash하고 pull
-          git stash
+          git stash push -m "temp" -u || true
           git pull origin main || true
           git stash pop || true
           
