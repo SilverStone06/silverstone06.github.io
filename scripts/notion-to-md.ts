@@ -8,6 +8,7 @@ import fs from "fs"
 import path from "path"
 import matter from "gray-matter"
 import { getTextContent, idToUuid } from "notion-utils"
+import crypto from "crypto"
 
 import { CONFIG } from "site.config"
 import { NotionAPI } from "notion-client"
@@ -27,7 +28,80 @@ function ensurePostsDir() {
 }
 
 /**
- * 기존 md 파일이 있으면 삭제하고 새로 생성합니다.
+ * 이미지를 다운로드하여 포스트 폴더에 저장하고, 상대 경로를 반환합니다.
+ */
+async function downloadAndSaveImage(
+  imageUrl: string,
+  blockId: string,
+  postSlug: string
+): Promise<string> {
+  try {
+    // 포스트별 이미지 디렉토리
+    const postImagesDir = path.join(POSTS_DIR, postSlug)
+    if (!fs.existsSync(postImagesDir)) {
+      fs.mkdirSync(postImagesDir, { recursive: true })
+    }
+    
+    // 이미지 URL에서 확장자 추출
+    let ext = "jpg" // 기본값
+    try {
+      const url = new URL(imageUrl)
+      const pathname = url.pathname
+      const match = pathname.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)
+      if (match) {
+        ext = match[1].toLowerCase()
+      }
+    } catch {
+      // URL 파싱 실패 시 기본값 사용
+    }
+    
+    // 고유한 파일명 생성 (blockId 기반)
+    const hash = crypto.createHash("md5").update(imageUrl).digest("hex").substring(0, 8)
+    const fileName = `${blockId}-${hash}.${ext}`
+    const filePath = path.join(postImagesDir, fileName)
+    
+    // 이미 파일이 존재하면 다운로드하지 않음
+    if (fs.existsSync(filePath)) {
+      console.log(`  [DEBUG] Image already exists: ${fileName}`)
+      return `/images/posts/${postSlug}/${fileName}`
+    }
+    
+    // Notion 이미지 URL을 사용하여 다운로드
+    const notionImageUrl = customMapImageUrl(imageUrl, { id: blockId, parent_table: "block" } as any)
+    
+    console.log(`  [DEBUG] Downloading image: ${notionImageUrl.substring(0, 100)}...`)
+    const response = await fetch(notionImageUrl)
+    
+    if (!response.ok) {
+      throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
+    }
+    
+    const arrayBuffer = await response.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    
+    fs.writeFileSync(filePath, buffer)
+    console.log(`  [DEBUG] Saved image: ${fileName} (${buffer.length} bytes)`)
+    
+    // public 폴더에도 복사 (Next.js에서 접근 가능하도록)
+    const publicImagesDir = path.join(process.cwd(), "public", "images", "posts", postSlug)
+    if (!fs.existsSync(publicImagesDir)) {
+      fs.mkdirSync(publicImagesDir, { recursive: true })
+    }
+    const publicImagePath = path.join(publicImagesDir, fileName)
+    fs.copyFileSync(filePath, publicImagePath)
+    console.log(`  [DEBUG] Copied image to public: ${publicImagePath}`)
+    
+    // 절대 경로 반환 (Next.js public 폴더 기준)
+    return `/images/posts/${postSlug}/${fileName}`
+  } catch (error: any) {
+    console.warn(`⚠️  Failed to download image: ${error.message}`)
+    // 실패 시 원본 URL 반환
+    return customMapImageUrl(imageUrl, { id: blockId, parent_table: "block" } as any)
+  }
+}
+
+/**
+ * 기존 포스트 폴더와 파일을 삭제합니다.
  * Notion에서 체크박스로 선택한 포스트만 가져오므로,
  * 기존 파일을 삭제하고 새로 생성하는 것이 안전합니다.
  */
@@ -36,20 +110,28 @@ function deleteExistingMarkdownFiles() {
     return
   }
 
-  const files = fs.readdirSync(POSTS_DIR)
+  const items = fs.readdirSync(POSTS_DIR)
   let deletedCount = 0
 
-  for (const file of files) {
-    if (file.endsWith(".md")) {
-      const filePath = path.join(POSTS_DIR, file)
-      fs.unlinkSync(filePath)
+  for (const item of items) {
+    const itemPath = path.join(POSTS_DIR, item)
+    const stat = fs.statSync(itemPath)
+    
+    if (stat.isDirectory()) {
+      // 폴더인 경우: 포스트 폴더이므로 삭제
+      fs.rmSync(itemPath, { recursive: true, force: true })
       deletedCount++
-      console.log(`🗑️  Deleted: ${file}`)
+      console.log(`🗑️  Deleted folder: ${item}/`)
+    } else if (item.endsWith(".md")) {
+      // 루트에 있는 .md 파일도 삭제 (구버전 호환)
+      fs.unlinkSync(itemPath)
+      deletedCount++
+      console.log(`🗑️  Deleted: ${item}`)
     }
   }
 
   if (deletedCount > 0) {
-    console.log(`✅ Deleted ${deletedCount} existing markdown file(s).`)
+    console.log(`✅ Deleted ${deletedCount} existing post(s).`)
   }
 }
 
@@ -57,12 +139,12 @@ function deleteExistingMarkdownFiles() {
  * Notion 페이지 ID를 받아서 Markdown 본문으로 변환합니다.
  * 이미지도 포함하여 변환합니다.
  */
-async function convertNotionPageToMarkdown(pageId: string): Promise<string> {
+async function convertNotionPageToMarkdown(pageId: string, postSlug: string): Promise<string> {
   try {
     console.log(`  [DEBUG] Fetching recordMap for page: ${pageId}`)
     const recordMap = await getRecordMap(pageId)
     console.log(`  [DEBUG] RecordMap fetched, blocks count: ${Object.keys(recordMap?.block || {}).length}`)
-    const markdown = convertRecordMapToMarkdown(recordMap, pageId)
+    const markdown = await convertRecordMapToMarkdown(recordMap, pageId, postSlug)
     console.log(`  [DEBUG] Converted markdown length: ${markdown.length} characters`)
     return markdown
   } catch (error) {
@@ -75,7 +157,7 @@ async function convertNotionPageToMarkdown(pageId: string): Promise<string> {
  * Notion recordMap을 Markdown 문자열로 변환합니다.
  * 블록의 계층 구조를 고려하고, 이미지도 포함합니다.
  */
-function convertRecordMapToMarkdown(recordMap: any, pageId: string): string {
+async function convertRecordMapToMarkdown(recordMap: any, pageId: string, postSlug: string): Promise<string> {
   const blocks: string[] = []
   const blockMap = recordMap.block || {}
   
@@ -139,7 +221,7 @@ function convertRecordMapToMarkdown(recordMap: any, pageId: string): string {
   if (rootBlock) {
     console.log(`    [DEBUG] Root block type: ${rootBlock.type}`)
     console.log(`    [DEBUG] Root block has ${rootBlock.content?.length || 0} children`)
-    const markdown = convertBlockWithChildren(rootBlock, blockMap, rootBlockId, 0)
+    const markdown = await convertBlockWithChildren(rootBlock, blockMap, rootBlockId, 0, postSlug)
     if (markdown) {
       blocks.push(markdown)
     }
@@ -151,17 +233,18 @@ function convertRecordMapToMarkdown(recordMap: any, pageId: string): string {
 /**
  * 블록과 그 자식들을 재귀적으로 Markdown으로 변환합니다.
  */
-function convertBlockWithChildren(
+async function convertBlockWithChildren(
   block: any,
   blockMap: any,
   blockId: string,
-  depth: number
-): string {
+  depth: number,
+  postSlug: string
+): Promise<string> {
   const result: string[] = []
   
   // 현재 블록 변환 (페이지 블록은 제외)
   if (block.type !== "page") {
-    const markdown = convertBlockToMarkdown(block, blockMap, depth)
+    const markdown = await convertBlockToMarkdown(block, blockMap, depth, postSlug)
     if (markdown) {
       result.push(markdown)
     }
@@ -172,7 +255,7 @@ function convertBlockWithChildren(
   for (const childId of children) {
     const childBlock = blockMap[childId]?.value
     if (childBlock) {
-      const childMarkdown = convertBlockWithChildren(childBlock, blockMap, childId, depth + 1)
+      const childMarkdown = await convertBlockWithChildren(childBlock, blockMap, childId, depth + 1, postSlug)
       if (childMarkdown) {
         result.push(childMarkdown)
       }
@@ -186,7 +269,7 @@ function convertBlockWithChildren(
  * 단일 블록을 Markdown으로 변환합니다.
  * 이미지 블록도 처리합니다.
  */
-function convertBlockToMarkdown(block: any, blockMap: any, depth: number): string {
+async function convertBlockToMarkdown(block: any, blockMap: any, depth: number, postSlug: string): Promise<string> {
   const blockType = block.type
   const content = getTextContent(block.properties?.title || [])
   
@@ -248,10 +331,11 @@ function convertBlockToMarkdown(block: any, blockMap: any, depth: number): strin
         }
         
         if (imageUrl) {
-          // customMapImageUrl을 사용하여 Notion 이미지 URL 변환
-          const mappedUrl = customMapImageUrl(imageUrl, block)
+          // 이미지를 다운로드하여 포스트 폴더에 저장
+          const blockId = block.id || ""
+          const localPath = await downloadAndSaveImage(imageUrl, blockId, postSlug)
           const caption = block.properties?.caption?.[0]?.[0] || content || ""
-          return `![${caption}](${mappedUrl})\n\n`
+          return `![${caption}](${localPath})\n\n`
         } else {
           console.warn(`⚠️  Image block found but no URL could be extracted`)
         }
@@ -516,10 +600,16 @@ async function syncNotionToMd() {
       continue
     }
 
-    const fileName = `${post.slug}.md`
-    const filePath = path.join(POSTS_DIR, fileName)
+    // 포스트별 폴더 생성
+    const postDir = path.join(POSTS_DIR, post.slug)
+    if (!fs.existsSync(postDir)) {
+      fs.mkdirSync(postDir, { recursive: true })
+    }
 
-    console.log(`📝 Processing: ${post.title} (${fileName})`)
+    const fileName = `${post.slug}.md`
+    const filePath = path.join(postDir, fileName)
+
+    console.log(`📝 Processing: ${post.title} (${post.slug}/${fileName})`)
 
     // Frontmatter 생성 (항상 Notion 기준으로 새로 생성)
     const frontmatter = buildFrontmatterFromPost(post)
@@ -527,7 +617,7 @@ async function syncNotionToMd() {
     // Notion recordMap → markdown(본문) 변환 (이미지 포함)
     let finalContent = ""
     try {
-      finalContent = await convertNotionPageToMarkdown(post.id)
+      finalContent = await convertNotionPageToMarkdown(post.id, post.slug)
       console.log(`  [DEBUG] Content length: ${finalContent.length} characters`)
       if (!finalContent) {
         console.warn(`⚠️  No content found for ${post.title}`)
@@ -542,7 +632,7 @@ async function syncNotionToMd() {
     const md = matter.stringify(finalContent.trim() + "\n", frontmatter)
     console.log(`  [DEBUG] Final markdown length: ${md.length} characters`)
     fs.writeFileSync(filePath, md, "utf8")
-    console.log(`✅ Created: ${fileName}`)
+    console.log(`✅ Created: ${post.slug}/${fileName}`)
     
     // 성공적으로 처리된 포스트 ID 저장
     successfullyProcessed.push(post.id)
