@@ -39,16 +39,16 @@ jobs:
         run: |
           npm install --legacy-peer-deps
 
-      - name: Install ts-node
+      - name: Install tsx (TypeScript executor)
         run: |
-          npm install -g ts-node typescript
+          npm install -g tsx typescript
 
       - name: Run Notion to MD sync script
         env:
           NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
         run: |
-          NODE_PATH=$PWD/src:$NODE_PATH npx ts-node scripts/notion-to-md.ts
+          NODE_PATH=$PWD/src:$NODE_PATH npx tsx scripts/notion-to-md.ts
 
       - name: Configure Git
         run: |
@@ -58,7 +58,7 @@ jobs:
       - name: Check for changes
         id: verify-changed-files
         run: |
-          if [ -n "$(git status --porcelain src/posts/*.md)" ]; then
+          if [ -n "$(git status --porcelain src/posts/)" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -69,6 +69,7 @@ jobs:
         run: |
           git add src/posts/*.md
           git commit -m "${{ github.event.inputs.message || github.event.client_payload.message || 'Sync posts from Notion' }}"
+          git pull --rebase || true
           git push
 
     outputs:
@@ -77,8 +78,8 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     needs: sync-and-commit
-    # 변경사항이 있거나 수동 실행/외부 트리거일 때 배포
-    if: needs.sync-and-commit.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch'
+    # 변경사항이 있거나 수동 실행일 때만 배포 (repository_dispatch는 변경사항이 있을 때만)
+    if: needs.sync-and-commit.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
