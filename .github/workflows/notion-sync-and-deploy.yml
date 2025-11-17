@@ -8,7 +8,7 @@ on:
         required: false
         default: 'Sync posts from Notion'
   repository_dispatch:
-    types: [notion-sync]
+    types: [RUN_WORKFLOW_DISPATCH]
 
 permissions:
   contents: write
