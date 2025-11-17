@@ -67,10 +67,11 @@ jobs:
       - name: Commit and push changes
         if: steps.verify-changed-files.outputs.changed == 'true'
         run: |
+          git pull --rebase origin main || true
           git add src/posts/*.md
           git commit -m "${{ github.event.inputs.message || github.event.client_payload.message || 'Sync posts from Notion' }}"
-          git pull --rebase || true
-          git push
+          git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}.git
+          git push origin main
 
     outputs:
       changed: ${{ steps.verify-changed-files.outputs.changed }}
