@@ -81,12 +81,18 @@ jobs:
           git pull ${REPO_URL} main || true
           git stash pop || true
           
-          # 변경사항 추가 및 커밋
-          git add src/posts/*.md
-          git commit -m "${{ github.event.inputs.message || github.event.client_payload.message || 'Sync posts from Notion' }}"
+          # 변경사항 추가 및 커밋 (새 파일과 삭제된 파일 모두 포함)
+          git add -A src/posts/
+          git status
           
-          # Push (명시적으로 URL 지정)
-          git push ${REPO_URL} main
+          # 변경사항이 있을 때만 커밋
+          if [ -n "$(git status --porcelain src/posts/)" ]; then
+            git commit -m "${{ github.event.inputs.message || github.event.client_payload.message || 'Sync posts from Notion' }}"
+            # Push (명시적으로 URL 지정)
+            git push ${REPO_URL} main
+          else
+            echo "No changes to commit"
+          fi
 
     outputs:
       changed: ${{ steps.verify-changed-files.outputs.changed }}
