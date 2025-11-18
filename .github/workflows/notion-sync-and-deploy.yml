@@ -109,10 +109,15 @@ jobs:
     # 변경사항이 있거나 수동 실행일 때만 배포 (repository_dispatch는 변경사항이 있을 때만)
     if: needs.sync-and-commit.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
     concurrency:
-      group: "pages"
-      cancel-in-progress: true
+      group: "pages-deployment"
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -128,6 +133,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./out
+          retention-days: 1
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
