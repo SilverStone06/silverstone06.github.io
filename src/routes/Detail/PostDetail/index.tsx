@@ -173,67 +173,49 @@ const PostDetail: React.FC = () => {
                     </div>
                   )
                 },
-                img: (() => {
-                  // 이미지 카운터를 클로저로 관리 (마크다운 내 이미지 순서 추적)
-                  let imageCounter = 0
-                  return ({ node, ...props }) => {
-                    let src = props.src || ""
-                    const postSlug = (data as any)?.slug || ""
-                    
-                    // 이미지 경로가 /images/posts/로 시작하는 경우 (이미 올바른 경로)
-                    if (src.startsWith("/images/posts/")) {
-                      // 그대로 사용
-                    }
-                    // Notion URL인 경우 로컬 이미지 경로로 변환
-                    else if (src.includes("notion.so/image") && postSlug) {
-                      // 이미지 순서대로 번호 부여
-                      imageCounter++
-                      
-                      // 확장자 추출 시도
-                      let ext = "png" // 기본값
-                      const extMatch = src.match(/\.(jpg|jpeg|png|gif|webp|svg)(?:\?|$)/i)
-                      if (extMatch) {
-                        ext = extMatch[1].toLowerCase()
-                        if (ext === "jpeg") ext = "jpg"
-                      }
-                      
-                      // image1, image2 형식으로 변환
-                      src = `/images/posts/${postSlug}/image${imageCounter}.${ext}`
-                    }
-                    
-                    // 이미지 경로가 /images/posts/로 시작하는 경우 Next.js Image 컴포넌트 사용
-                    if (src.startsWith("/images/")) {
-                      return (
-                        <div css={{ margin: "2rem 0" }}>
-                          <Image
-                            src={src}
-                            alt={props.alt || ""}
-                            width={800}
-                            height={600}
-                            style={{ width: "100%", height: "auto", borderRadius: "0.5rem" }}
-                            unoptimized
-                          />
-                          {props.alt && (
-                            <div css={{ 
-                              marginTop: "0.5rem", 
-                              fontSize: "0.875rem", 
-                              color: "rgba(100, 116, 139, 1)",
-                              textAlign: "center"
-                            }}>
-                              {props.alt}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    }
-                    // 외부 이미지나 다른 경로는 일반 img 태그 사용
+                img: ({ node, ...props }) => {
+                  let src = props.src || ""
+                  const postSlug = (data as any)?.slug || ""
+                  
+                  // 이미지 경로가 /images/posts/로 시작하는 경우 Next.js Image 컴포넌트 사용
+                  if (src.startsWith("/images/")) {
                     return (
                       <div css={{ margin: "2rem 0" }}>
-                        <img {...props} style={{ maxWidth: "100%", height: "auto", borderRadius: "0.5rem" }} />
+                        <Image
+                          src={src}
+                          alt={props.alt || ""}
+                          width={800}
+                          height={600}
+                          style={{ width: "100%", height: "auto", borderRadius: "0.5rem" }}
+                          unoptimized
+                        />
+                        {props.alt && (
+                          <div css={{ 
+                            marginTop: "0.5rem", 
+                            fontSize: "0.875rem", 
+                            color: "rgba(100, 116, 139, 1)",
+                            textAlign: "center"
+                          }}>
+                            {props.alt}
+                          </div>
+                        )}
                       </div>
                     )
                   }
-                })(),
+                  // 외부 이미지나 다른 경로는 일반 img 태그 사용
+                  return (
+                    <div css={{ margin: "2rem 0" }}>
+                      <Image
+                        src={src}
+                        alt={props.alt || "image"}
+                        width={800}
+                        height={600}
+                        style={{ width: "100%", height: "auto", borderRadius: "0.5rem" }}
+                        unoptimized
+                      />
+                    </div>
+                  )
+                },
               }}
             >
               {content}
