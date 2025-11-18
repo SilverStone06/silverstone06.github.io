@@ -15,7 +15,7 @@ tags:
   - OSI
 category:
   - "\U0001F916 Computer Science"
-summary: 'OSI 2 Layer에 대해 알아볼까나'
+summary: OSI 2 Layer에 대해 알아볼까나
 thumbnail: null
 author:
   - id: 29ad872b-594c-816f-bc65-000286fbcef6
