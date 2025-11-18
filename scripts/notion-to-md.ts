@@ -29,10 +29,11 @@ function ensurePostsDir() {
 
 /**
  * 이미지를 다운로드하여 포스트 폴더에 저장하고, 상대 경로를 반환합니다.
+ * image1, image2 형식으로 저장합니다.
  */
 async function downloadAndSaveImage(
   imageUrl: string,
-  blockId: string,
+  imageIndex: number,
   postSlug: string
 ): Promise<string> {
   try {
@@ -55,9 +56,8 @@ async function downloadAndSaveImage(
       // URL 파싱 실패 시 기본값 사용
     }
     
-    // 고유한 파일명 생성 (blockId 기반)
-    const hash = crypto.createHash("md5").update(imageUrl).digest("hex").substring(0, 8)
-    const fileName = `${blockId}-${hash}.${ext}`
+    // image1, image2 형식으로 파일명 생성
+    const fileName = `image${imageIndex}.${ext}`
     const filePath = path.join(postImagesDir, fileName)
     
     // 이미 파일이 존재하면 다운로드하지 않음
@@ -67,7 +67,7 @@ async function downloadAndSaveImage(
     }
     
     // Notion 이미지 URL을 사용하여 다운로드
-    const notionImageUrl = customMapImageUrl(imageUrl, { id: blockId, parent_table: "block" } as any)
+    const notionImageUrl = customMapImageUrl(imageUrl, { id: "", parent_table: "block" } as any)
     
     console.log(`  [DEBUG] Downloading image: ${notionImageUrl.substring(0, 100)}...`)
     const response = await fetch(notionImageUrl)
@@ -96,7 +96,7 @@ async function downloadAndSaveImage(
   } catch (error: any) {
     console.warn(`⚠️  Failed to download image: ${error.message}`)
     // 실패 시 원본 URL 반환
-    return customMapImageUrl(imageUrl, { id: blockId, parent_table: "block" } as any)
+    return customMapImageUrl(imageUrl, { id: "", parent_table: "block" } as any)
   }
 }
 
@@ -161,6 +161,9 @@ async function convertRecordMapToMarkdown(recordMap: any, pageId: string, postSl
   const blocks: string[] = []
   const blockMap = recordMap.block || {}
   
+  // 이미지 카운터 초기화 (포스트별로 관리)
+  let imageCounter = { count: 0 }
+  
   console.log(`    [DEBUG] Total blocks in recordMap: ${Object.keys(blockMap).length}`)
   
   // 페이지 ID를 UUID 형식으로 변환 (여러 형식 시도)
@@ -221,7 +224,7 @@ async function convertRecordMapToMarkdown(recordMap: any, pageId: string, postSl
   if (rootBlock) {
     console.log(`    [DEBUG] Root block type: ${rootBlock.type}`)
     console.log(`    [DEBUG] Root block has ${rootBlock.content?.length || 0} children`)
-    const markdown = await convertBlockWithChildren(rootBlock, blockMap, rootBlockId, 0, postSlug)
+    const markdown = await convertBlockWithChildren(rootBlock, blockMap, rootBlockId, 0, postSlug, imageCounter)
     if (markdown) {
       blocks.push(markdown)
     }
@@ -238,13 +241,14 @@ async function convertBlockWithChildren(
   blockMap: any,
   blockId: string,
   depth: number,
-  postSlug: string
+  postSlug: string,
+  imageCounter: { count: number }
 ): Promise<string> {
   const result: string[] = []
   
   // 현재 블록 변환 (페이지 블록은 제외)
   if (block.type !== "page") {
-    const markdown = await convertBlockToMarkdown(block, blockMap, depth, postSlug)
+    const markdown = await convertBlockToMarkdown(block, blockMap, depth, postSlug, imageCounter)
     if (markdown) {
       result.push(markdown)
     }
@@ -255,7 +259,7 @@ async function convertBlockWithChildren(
   for (const childId of children) {
     const childBlock = blockMap[childId]?.value
     if (childBlock) {
-      const childMarkdown = await convertBlockWithChildren(childBlock, blockMap, childId, depth + 1, postSlug)
+      const childMarkdown = await convertBlockWithChildren(childBlock, blockMap, childId, depth + 1, postSlug, imageCounter)
       if (childMarkdown) {
         result.push(childMarkdown)
       }
@@ -269,7 +273,7 @@ async function convertBlockWithChildren(
  * 단일 블록을 Markdown으로 변환합니다.
  * 이미지 블록도 처리합니다.
  */
-async function convertBlockToMarkdown(block: any, blockMap: any, depth: number, postSlug: string): Promise<string> {
+async function convertBlockToMarkdown(block: any, blockMap: any, depth: number, postSlug: string, imageCounter: { count: number }): Promise<string> {
   const blockType = block.type
   const content = getTextContent(block.properties?.title || [])
   
@@ -331,9 +335,12 @@ async function convertBlockToMarkdown(block: any, blockMap: any, depth: number, 
         }
         
         if (imageUrl) {
+          // 이미지 카운터 증가
+          imageCounter.count++
+          const imageIndex = imageCounter.count
+          
           // 이미지를 다운로드하여 포스트 폴더에 저장
-          const blockId = block.id || ""
-          const localPath = await downloadAndSaveImage(imageUrl, blockId, postSlug)
+          const localPath = await downloadAndSaveImage(imageUrl, imageIndex, postSlug)
           const caption = block.properties?.caption?.[0]?.[0] || content || ""
           return `![${caption}](${localPath})\n\n`
         } else {
