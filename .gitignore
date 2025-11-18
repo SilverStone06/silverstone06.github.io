@@ -33,7 +33,10 @@ yarn-error.log*
 
 # vercel
 .vercel
-# public/robots.txt
-# public/sitemap.xml
 
+# firebase
 /.firebase
+
+# auto-generated files
+/public/robots.txt
+/public/sitemap.xml

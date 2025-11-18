@@ -1,5 +1,6 @@
 import { DEFAULT_CATEGORY } from "src/constants"
 import { TPost } from "src/types"
+import { comparePostsByDate } from "src/libs/utils/post"
 
 interface FilterPostsParams {
   posts: TPost[]
@@ -27,9 +28,5 @@ export function filterPosts({
           (post.category && post.category.includes(category)))
       )
     })
-    .sort((a, b) => {
-      const dateA = new Date(a.date?.start_date || a.createdTime).getTime()
-      const dateB = new Date(b.date?.start_date || b.createdTime).getTime()
-      return order === "desc" ? dateB - dateA : dateA - dateB
-    })
+    .sort((a, b) => comparePostsByDate(a, b, order as "asc" | "desc"))
 }

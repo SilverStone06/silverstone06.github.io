@@ -6,6 +6,7 @@ import path from "path"
 import matter from "gray-matter"
 import { TPosts } from "src/types"
 import { CONFIG } from "site.config"
+import { sortPostsByDate } from "src/libs/utils/post"
 
 const POSTS_DIR = path.join(process.cwd(), "src", "posts")
 
@@ -51,7 +52,7 @@ export const getPostsFromMd = async (): Promise<TPosts> => {
     // author가 문자열 또는 문자열 배열로 되어 있을 수 있어서 통일
    const rawAuthor = fm.author
 
-  let author: any[] = []
+  let author: Array<{ id: string; name: string; profile_photo?: string }> = []
 
   if (Array.isArray(rawAuthor)) {
     author = rawAuthor.map((a) =>
@@ -87,8 +88,7 @@ export const getPostsFromMd = async (): Promise<TPosts> => {
       normalizedDate.start_date ??
       new Date().toISOString()
 
-    // 기존 TPost 구조를 최대한 그대로 맞춰줌
-    const post: any = {
+    const post = {
       ...fm,
       id: fm.id ?? slug, // TPost 타입에 id 필드가 필요하므로 유지 (하지만 실제로는 사용하지 않음)
       slug,
@@ -110,12 +110,7 @@ export const getPostsFromMd = async (): Promise<TPosts> => {
     return post
   })
 
-  // 기존 getPosts 처럼 날짜 기준 최신순 정렬
-  data.sort((a, b) => {
-    const dateA: any = new Date(a?.date?.start_date || a.createdTime)
-    const dateB: any = new Date(b?.date?.start_date || b.createdTime)
-    return dateB - dateA
-  })
+  const sortedData = sortPostsByDate(data)
 
-  return data as TPosts
+  return sortedData as TPosts
 }

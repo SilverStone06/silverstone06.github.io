@@ -36,7 +36,7 @@ const CategorySelect: React.FC<Props> = () => {
               key={idx}
               onClick={() => handleOptionClick(key)}
             >
-              {`${key} (${data[key]})`}
+              {`${key} (${(data as Record<string, number>)[key]})`}
             </div>
           ))}
         </div>
