@@ -31,7 +31,7 @@ Recently, while working on Next.js-based personal blogs and personal projects, t
 
 First, create an account as shown in the picture below, create properties, create a stream, and put the URL of your website in the stream URL. When it was first created, it was not linked, so of course it was not activated. At this time, since you need to insert the measurement ID, remember the ID.
 
-![Untitled](/images/posts/how-to-apply-ga-to-next.js/2a9be0b2-87a1-81f7-9fdf-df9978c8fbe1-089fd9c6.png)
+![Untitled](https://www.notion.so/image/https%3A%2F%2Fs3-us-west-2.amazonaws.com%2Fsecure.notion-static.com%2Fbd5bba7a-e2d4-4a19-abe5-6d348df6deef%2FUntitled.png?table=block&id=&cache=v2)
 
 If you look at the guide for tagging, it says that you can apply the code below.
 

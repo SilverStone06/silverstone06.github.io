@@ -37,7 +37,7 @@ fullWidth: false
 
 ## 1️⃣ OSI 7계층 — L1 : 물리 계층이란?
 
-![image.png](/images/posts/test2/2aabe0b2-87a1-80a9-bb6c-d630e58f904e-17103ad5.png)
+![image.png](https://www.notion.so/image/attachment%3A738eedcd-0026-4c6a-8eeb-044ecd53f7dc%3Aimage.png?table=block&id=&cache=v2)
 
 물리 계층은 네트워크 통신의 가장 아래단에 위치하며, 데이터를 전기 신호나 광신호로 변환해 실제로 전송하는 역할을 담당합니다.
 
@@ -115,7 +115,7 @@ fullWidth: false
 
 여러 방식의 차폐(Shield)가 적용됩니다.
 
-![image.png](/images/posts/test2/2aabe0b2-87a1-8088-a01e-d8ed5cd8bce7-653c6d08.png)
+![image.png](https://www.notion.so/image/attachment%3A52b560e4-5ee0-4ad4-8770-e97c3c44ade6%3Aimage.png?table=block&id=&cache=v2)
 
 > 💡 
 

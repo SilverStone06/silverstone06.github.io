@@ -22,7 +22,7 @@ fullWidth: false
 ---
 # morethanmin, Software Engineer
 
-![cat2.jpeg](/images/posts/resume/2a9be0b2-87a1-81c4-a717-cdc42b59fed7-bb235ef6.jpeg)
+![cat2.jpeg](https://www.notion.so/image/https%3A%2F%2Fs3-us-west-2.amazonaws.com%2Fsecure.notion-static.com%2F50498e23-ef17-4edb-8778-7112a643c16d%2Fcat2.jpeg?table=block&id=&cache=v2)
 
 ### Contact.
 
