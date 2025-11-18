@@ -9,6 +9,15 @@ on:
         default: 'Update : New posts'
   repository_dispatch:
     types: [RUN_WORKFLOW_DISPATCH]
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/posts/**'
+      - 'src/**'
+      - 'package.json'
+      - 'next.config.js'
+      - '.github/workflows/notion-sync-and-deploy.yml'
 
 permissions:
   contents: write
@@ -20,30 +29,74 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-push-author:
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.check.outputs.should-run }}
+    steps:
+      - name: Check if commit is from GitHub Actions
+        id: check
+        run: |
+          # push 이벤트가 아닌 경우 항상 실행
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "should-run=true" >> $GITHUB_OUTPUT
+            echo "Not a push event, running workflow"
+            exit 0
+          fi
+          
+          # GitHub Actions가 만든 커밋인지 확인
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          COMMIT_EMAIL="${{ github.event.head_commit.author.email }}"
+          
+          if [ "$COMMIT_EMAIL" = "action@github.com" ] || 
+             echo "$COMMIT_MSG" | grep -q "\[skip ci\]" || 
+             echo "$COMMIT_MSG" | grep -q "\[ci skip\]"; then
+            echo "should-run=false" >> $GITHUB_OUTPUT
+            echo "Commit is from GitHub Actions or has [skip ci], skipping workflow"
+          else
+            echo "should-run=true" >> $GITHUB_OUTPUT
+            echo "Commit is from user, running workflow"
+          fi
+
   sync-and-commit:
     runs-on: ubuntu-latest
+    needs: check-push-author
+    if: needs.check-push-author.outputs.should-run == 'true'
     steps:
+      # push 이벤트일 때는 동기화 단계 건너뛰기 (이미 커밋된 상태)
+      - name: Skip sync on push
+        if: github.event_name == 'push'
+        id: skip-sync
+        run: |
+          echo "Push event detected, skipping Notion sync"
+          echo "changed=true" >> $GITHUB_OUTPUT
+      
       - name: Checkout repository
+        if: github.event_name != 'push'
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_TOKEN }}
           fetch-depth: 0
 
       - name: Setup Node.js
+        if: github.event_name != 'push'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies (blog)
+        if: github.event_name != 'push'
         run: |
           npm install --legacy-peer-deps
 
       - name: Install tsx (TypeScript executor)
+        if: github.event_name != 'push'
         run: |
           npm install -g tsx typescript
 
       - name: Run Notion to MD sync script
+        if: github.event_name != 'push'
         env:
           NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
@@ -51,11 +104,13 @@ jobs:
           NODE_PATH=$PWD/src:$NODE_PATH npx tsx scripts/notion-to-md.ts
 
       - name: Configure Git
+        if: github.event_name != 'push'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
       - name: Check for changes
+        if: github.event_name != 'push'
         id: verify-changed-files
         run: |
           if [ -n "$(git status --porcelain src/posts/)" ]; then
@@ -95,19 +150,24 @@ jobs:
             echo "No changes to commit in src/posts/"
           else
             echo "Committing changes..."
-            git commit -m "${{ github.event.inputs.message || github.event.client_payload.message || 'Update : New Posts' }}"
+            # [skip ci]를 추가하여 워크플로가 만든 커밋이 다시 워크플로를 트리거하지 않도록 함
+            COMMIT_MSG="${{ github.event.inputs.message || github.event.client_payload.message || 'Update : New Posts' }} [skip ci]"
+            git commit -m "${COMMIT_MSG}"
             echo "Pushing changes..."
             git push ${REPO_URL} main
           fi
 
     outputs:
-      changed: ${{ steps.verify-changed-files.outputs.changed }}
+      changed: ${{ steps.skip-sync.outputs.changed || steps.verify-changed-files.outputs.changed || 'false' }}
 
   build-and-deploy:
     runs-on: ubuntu-latest
-    needs: sync-and-commit
-    # 변경사항이 있거나 수동 실행일 때만 배포 (repository_dispatch는 변경사항이 있을 때만)
-    if: needs.sync-and-commit.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [check-push-author, sync-and-commit]
+    # push 이벤트일 때는 GitHub Actions 커밋이 아닌 경우에만 실행
+    # push가 아닐 때는 변경사항이 있거나 수동 실행일 때만 실행
+    if: |
+      (github.event_name == 'push' && needs.check-push-author.outputs.should-run == 'true') ||
+      (github.event_name != 'push' && (needs.sync-and-commit.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'))
     concurrency:
       group: "pages-deployment"
       cancel-in-progress: false
