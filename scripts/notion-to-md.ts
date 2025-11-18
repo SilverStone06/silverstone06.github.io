@@ -34,10 +34,11 @@ function ensurePostsDir() {
 async function downloadAndSaveImage(
   imageUrl: string,
   imageIndex: number,
-  postSlug: string
+  postSlug: string,
+  blockId: string
 ): Promise<string> {
   try {
-    // 포스트별 이미지 디렉토리
+    // 포스트별 이미지 디렉토리 (src/posts/{slug}/)
     const postImagesDir = path.join(POSTS_DIR, postSlug)
     if (!fs.existsSync(postImagesDir)) {
       fs.mkdirSync(postImagesDir, { recursive: true })
@@ -48,9 +49,12 @@ async function downloadAndSaveImage(
     try {
       const url = new URL(imageUrl)
       const pathname = url.pathname
-      const match = pathname.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)
+      // URL에서 확장자 추출 시도
+      const match = pathname.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i)
       if (match) {
         ext = match[1].toLowerCase()
+        // jpeg를 jpg로 통일
+        if (ext === "jpeg") ext = "jpg"
       }
     } catch {
       // URL 파싱 실패 시 기본값 사용
@@ -66,37 +70,44 @@ async function downloadAndSaveImage(
       return `/images/posts/${postSlug}/${fileName}`
     }
     
-    // Notion 이미지 URL을 사용하여 다운로드
-    const notionImageUrl = customMapImageUrl(imageUrl, { id: "", parent_table: "block" } as any)
+    // Notion 이미지 URL을 사용하여 다운로드 (blockId 필요)
+    const notionImageUrl = customMapImageUrl(imageUrl, { id: blockId, parent_table: "block" } as any)
     
-    console.log(`  [DEBUG] Downloading image: ${notionImageUrl.substring(0, 100)}...`)
+    console.log(`  [DEBUG] Downloading image ${imageIndex}: ${notionImageUrl.substring(0, 100)}...`)
     const response = await fetch(notionImageUrl)
     
     if (!response.ok) {
       throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
     }
     
+    // Content-Type에서 확장자 확인
+    const contentType = response.headers.get("content-type")
+    if (contentType) {
+      if (contentType.includes("png")) ext = "png"
+      else if (contentType.includes("gif")) ext = "gif"
+      else if (contentType.includes("webp")) ext = "webp"
+      else if (contentType.includes("svg")) ext = "svg"
+      else if (contentType.includes("jpeg") || contentType.includes("jpg")) ext = "jpg"
+    }
+    
+    // 확장자가 변경되었으면 파일명도 업데이트
+    const finalFileName = `image${imageIndex}.${ext}`
+    const finalFilePath = path.join(postImagesDir, finalFileName)
+    
     const arrayBuffer = await response.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     
-    fs.writeFileSync(filePath, buffer)
-    console.log(`  [DEBUG] Saved image: ${fileName} (${buffer.length} bytes)`)
+    // src/posts/{slug}/ 폴더에 저장 (여기에만 저장, 빌드 시 public으로 복사됨)
+    fs.writeFileSync(finalFilePath, buffer)
+    console.log(`  [DEBUG] Saved image: ${finalFileName} (${buffer.length} bytes) to ${finalFilePath}`)
     
-    // public 폴더에도 복사 (Next.js에서 접근 가능하도록)
-    const publicImagesDir = path.join(process.cwd(), "public", "images", "posts", postSlug)
-    if (!fs.existsSync(publicImagesDir)) {
-      fs.mkdirSync(publicImagesDir, { recursive: true })
-    }
-    const publicImagePath = path.join(publicImagesDir, fileName)
-    fs.copyFileSync(filePath, publicImagePath)
-    console.log(`  [DEBUG] Copied image to public: ${publicImagePath}`)
-    
-    // 절대 경로 반환 (Next.js public 폴더 기준)
-    return `/images/posts/${postSlug}/${fileName}`
+    // 절대 경로 반환 (Next.js public 폴더 기준, 빌드 시 src/posts의 이미지가 public으로 복사됨)
+    return `/images/posts/${postSlug}/${finalFileName}`
   } catch (error: any) {
-    console.warn(`⚠️  Failed to download image: ${error.message}`)
-    // 실패 시 원본 URL 반환
-    return customMapImageUrl(imageUrl, { id: "", parent_table: "block" } as any)
+    console.error(`⚠️  Failed to download image ${imageIndex}: ${error.message}`)
+    console.error(`  Image URL: ${imageUrl}`)
+    // 실패 시 빈 문자열 반환 (마크다운에서 이미지가 표시되지 않음)
+    return ""
   }
 }
 
@@ -335,12 +346,26 @@ async function convertBlockToMarkdown(block: any, blockMap: any, depth: number, 
         }
         
         if (imageUrl) {
+          // blockId 가져오기 (필수)
+          const blockId = block.id || ""
+          if (!blockId) {
+            console.warn(`⚠️  Image block found but no blockId, skipping`)
+            return ""
+          }
+          
           // 이미지 카운터 증가
           imageCounter.count++
           const imageIndex = imageCounter.count
           
           // 이미지를 다운로드하여 포스트 폴더에 저장
-          const localPath = await downloadAndSaveImage(imageUrl, imageIndex, postSlug)
+          const localPath = await downloadAndSaveImage(imageUrl, imageIndex, postSlug, blockId)
+          
+          // 다운로드 실패 시 빈 문자열이 반환됨
+          if (!localPath) {
+            console.warn(`⚠️  Failed to download image ${imageIndex}, skipping`)
+            return ""
+          }
+          
           const caption = block.properties?.caption?.[0]?.[0] || content || ""
           return `![${caption}](${localPath})\n\n`
         } else {
