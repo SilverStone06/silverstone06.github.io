@@ -187,7 +187,24 @@ async function convertBlockToMarkdown(
       const link = block.properties?.link?.[0]?.[0] || ""
       const title = convertRichText(block.properties?.title || []) || link
       const description = convertRichText(block.properties?.description || [])
-      return `[${title}](${link})\n\n`
+      const thumbnail = block.format?.bookmark_cover || ""
+
+      // Create a compact card-style bookmark
+      let cardContent = "> "
+
+      // Add thumbnail if available (200px width)
+      if (thumbnail) {
+        cardContent += `<img src="${thumbnail}" alt="" width="200" />\n>\n> `
+      }
+
+      cardContent += `🔗 **[${title}](${link})**\n`
+
+      // Add description if available
+      if (description) {
+        cardContent += `>\n> ${description}\n`
+      }
+
+      return cardContent + "\n"
     }
 
     case "image": {
