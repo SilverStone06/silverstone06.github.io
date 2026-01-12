@@ -13,11 +13,9 @@ tags: []
 category:
   - "\U0001F60E Daily"
 summary: ''
-thumbnail: null
 author:
   - id: 29ad872b-594c-816f-bc65-000286fbcef6
     name: 송은석
-    profile_photo: null
 fullWidth: false
 ---
 # 공 사 중 ❗
