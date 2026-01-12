@@ -55,20 +55,18 @@ async function syncNotionToMd() {
     }
     // undefined 값 제거 함수
     function removeUndefined(obj: any): any {
-      if (obj === null || obj === undefined) return null;
+      if (obj === null || obj === undefined) return undefined;
       if (typeof obj !== "object") return obj;
       
       if (Array.isArray(obj)) {
-        return obj.map(removeUndefined).filter(v => v !== null && v !== undefined);
+        return obj.map(removeUndefined).filter(v => v !== undefined);
       }
       
       const result: any = {};
       for (const [key, value] of Object.entries(obj)) {
-        if (value !== undefined) {
-          const cleaned = removeUndefined(value);
-          if (cleaned !== null && cleaned !== undefined) {
-            result[key] = cleaned;
-          }
+        const cleaned = removeUndefined(value);
+        if (cleaned !== undefined) {
+          result[key] = cleaned;
         }
       }
       return result;
@@ -76,6 +74,9 @@ async function syncNotionToMd() {
 
     // frontmatter에서 undefined 제거
     const cleanedFrontmatter = removeUndefined(frontmatter);
+    
+    console.log(`  [DEBUG] Frontmatter keys:`, Object.keys(cleanedFrontmatter))
+    console.log(`  [DEBUG] Frontmatter:`, JSON.stringify(cleanedFrontmatter, null, 2))
     
     const md = matter.stringify(finalContent.trim() + "\n", cleanedFrontmatter)
     console.log(`  [DEBUG] Final markdown length: ${md.length} characters`)
