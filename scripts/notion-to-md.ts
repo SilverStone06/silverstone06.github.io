@@ -53,6 +53,28 @@ async function syncNotionToMd() {
       })
       finalContent = ""
     }
+    function findUndefinedPaths(obj: any, path = "frontmatter", out: string[] = []): string[] {
+  if (obj === undefined) out.push(path);
+  if (!obj || typeof obj !== "object") return out;
+
+  if (Array.isArray(obj)) {
+    obj.forEach((v, i) => findUndefinedPaths(v, `${path}[${i}]`, out));
+  } else {
+    for (const [k, v] of Object.entries(obj)) {
+      findUndefinedPaths(v, `${path}.${k}`, out);
+    }
+  }
+  return out;
+}
+
+// matter.stringify 직전
+const bad = findUndefinedPaths(frontmatter);
+if (bad.length) {
+  console.log("[notion-md] undefined paths:", bad);
+  console.log("[notion-md] page:", post?.id, post?.title);
+  console.log("[notion-md] frontmatter raw:", JSON.stringify(frontmatter, null, 2));
+  throw new Error("frontmatter contains undefined");
+}
 
     const md = matter.stringify(finalContent.trim() + "\n", frontmatter)
     console.log(`  [DEBUG] Final markdown length: ${md.length} characters`)
