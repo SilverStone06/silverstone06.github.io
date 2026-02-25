@@ -10,11 +10,6 @@ function getNotionToken(): string | undefined {
   return process.env.NOTION_TOKEN
 }
 
-interface CheckboxValue {
-  checked: boolean
-  value: any
-}
-
 function isCheckboxChecked(val: any): boolean {
   let checkboxValue: any = null
   
@@ -40,36 +35,68 @@ function isCheckboxChecked(val: any): boolean {
   )
 }
 
+function normalizePropertyName(name: string | undefined): string {
+  return (name || "").replace(/\s+/g, "").toLowerCase()
+}
+
+function findSchemaFromResponse(response: any, block: any): any {
+  const collections = Object.entries(response?.collection || {})
+  for (const [, collection] of collections) {
+    const schema = (collection as any)?.value?.schema
+    if (schema && Object.keys(schema).length > 0) {
+      return schema
+    }
+  }
+
+  // Fallback: find schema via collection_id referenced by collection_view blocks.
+  for (const [, row] of Object.entries(block || {})) {
+    const value = (row as any)?.value
+    if (!value) continue
+    const collectionId = value.collection_id
+    if (!collectionId) continue
+    const schema = response?.collection?.[collectionId]?.value?.schema
+    if (schema && Object.keys(schema).length > 0) {
+      return schema
+    }
+  }
+
+  return {}
+}
+
+function fallbackPageIdsFromBlock(block: any): string[] {
+  return Object.entries(block || {})
+    .filter(([, row]) => {
+      const value = (row as any)?.value
+      return value?.type === "page" && value?.parent_table === "collection"
+    })
+    .map(([id]) => id)
+}
+
 /**
  * "gitCommit" 체크박스가 체크된 포스트만 가져옵니다.
  */
 export async function getPostsWithCheckboxFilter(): Promise<{ posts: TPosts; schema: any }> {
-  let id = CONFIG.notionConfig.pageId as string
+  const id = CONFIG.notionConfig.pageId as string
   const api = new NotionAPI()
 
   console.log("[DEBUG] Fetching Notion page...")
   const response = await api.getPage(id)
-  id = idToUuid(id)
-  const collection = Object.values(response.collection)[0]?.value
-  const block = response.block
-  const schema = collection?.schema
+  const block = response.block || {}
+  const schema = findSchemaFromResponse(response, block)
 
   console.log(`[DEBUG] Schema keys: ${Object.keys(schema || {}).length}`)
   console.log(`[DEBUG] Block keys: ${Object.keys(block || {}).length}`)
 
-  const rawMetadata = block[id].value
-
-  // Check Type
-  if (
-    rawMetadata?.type !== "collection_view_page" &&
-    rawMetadata?.type !== "collection_view"
-  ) {
-    console.log(`[DEBUG] Invalid type: ${rawMetadata?.type}`)
+  if (!schema || Object.keys(schema).length === 0) {
+    console.log("[DEBUG] Could not find collection schema from response")
     return { posts: [] as TPosts, schema: {} }
   }
 
   // Construct Data
-  const pageIds = getAllPageIds(response)
+  let pageIds = getAllPageIds(response)
+  if (pageIds.length === 0) {
+    pageIds = fallbackPageIdsFromBlock(block)
+  }
   console.log(`[DEBUG] Found ${pageIds.length} page IDs`)
   const data = []
   
@@ -101,7 +128,11 @@ export async function getPostsWithCheckboxFilter(): Promise<{ posts: TPosts; sch
           console.log(`  [DEBUG] Found checkbox property: "${propName}" = ${JSON.stringify(val)}`)
         }
         
-        if (propName === "gitCommit" && propType === "checkbox") {
+        const normalizedName = normalizePropertyName(propName)
+        if (
+          propType === "checkbox" &&
+          (normalizedName === "gitcommit" || normalizedName === "git_commit")
+        ) {
           foundGitCommitProperty = true
           gitCommitChecked = isCheckboxChecked(val)
           console.log(`  [DEBUG] gitCommit checked: ${gitCommitChecked}`)
@@ -158,7 +189,11 @@ export async function updateCommitStatusCheckbox(
 
     let commitStatusPropertyId: string | null = null
     for (const [key, value] of Object.entries(schema) as [string, any][]) {
-      if (value?.name === "commitStatus" && value?.type === "checkbox") {
+      const normalizedName = normalizePropertyName(value?.name)
+      if (
+        value?.type === "checkbox" &&
+        (normalizedName === "commitstatus" || normalizedName === "commit_status")
+      ) {
         commitStatusPropertyId = key
         break
       }
@@ -204,4 +239,3 @@ export async function updateCommitStatusCheckbox(
     return false
   }
 }
-

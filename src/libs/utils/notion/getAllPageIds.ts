@@ -5,21 +5,30 @@ export default function getAllPageIds(
   response: ExtendedRecordMap,
   viewId?: string
 ) {
-  const collectionQuery = response.collection_query
-  const views = Object.values(collectionQuery)[0]
+  const collectionQuery = response.collection_query || {}
+  const viewGroups = Object.values(collectionQuery)
+  if (viewGroups.length === 0) return []
 
   let pageIds: ID[] = []
   if (viewId) {
     const vId = idToUuid(viewId)
-    pageIds = views[vId]?.blockIds
+    const pageSet = new Set<ID>()
+    for (const views of viewGroups as any[]) {
+      const ids =
+        views?.[vId]?.blockIds ||
+        views?.[vId]?.collection_group_results?.blockIds ||
+        []
+      ids.forEach((id: ID) => pageSet.add(id))
+    }
+    pageIds = [...pageSet]
   } else {
     const pageSet = new Set<ID>()
-    // * type not exist
-    Object.values(views).forEach((view: any) => {
-      view?.collection_group_results?.blockIds?.forEach((id: ID) =>
-        pageSet.add(id)
-      )
-    })
+    for (const views of viewGroups as any[]) {
+      Object.values(views || {}).forEach((view: any) => {
+        const ids = view?.collection_group_results?.blockIds || view?.blockIds || []
+        ids.forEach((id: ID) => pageSet.add(id))
+      })
+    }
     pageIds = [...pageSet]
   }
   return pageIds
