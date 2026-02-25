@@ -90,21 +90,46 @@ export const StyledMarkdownContent = styled.div`
     }
   }
 
-  pre {
+  .code-block {
     margin: 1.5rem 0;
-    padding: 1rem;
-    background-color: ${({ theme }) =>
-      theme.scheme === "light" ? "rgba(15, 23, 42, 0.05)" : "rgba(15, 23, 42, 0.8)"};
-    border-radius: 0.5rem;
-    overflow-x: auto;
+    border-radius: 0.75rem;
     border: 1px solid ${({ theme }) => theme.colors.gray6};
+    background-color: ${({ theme }) =>
+      theme.scheme === "light" ? "rgba(248, 250, 252, 1)" : "rgba(2, 6, 23, 0.86)"};
+    box-shadow: ${({ theme }) =>
+      theme.scheme === "light"
+        ? "0 8px 24px rgba(15, 23, 42, 0.08)"
+        : "0 10px 26px rgba(2, 6, 23, 0.45)"};
+  }
 
-    code {
-      font-family: "Fira Code", "Consolas", "Monaco", monospace;
-      font-size: 0.875rem;
-      line-height: 1.6;
-      color: ${({ theme }) => theme.colors.gray12};
-    }
+  .code-block-header {
+    padding: 0.5rem 0.875rem;
+    border-bottom: 1px solid ${({ theme }) => theme.colors.gray6};
+    border-top-left-radius: 0.75rem;
+    border-top-right-radius: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: ${({ theme }) =>
+      theme.scheme === "light" ? "rgba(30, 41, 59, 0.8)" : "rgba(226, 232, 240, 0.9)"};
+    background: ${({ theme }) =>
+      theme.scheme === "light" ? "rgba(241, 245, 249, 0.9)" : "rgba(15, 23, 42, 0.92)"};
+  }
+
+  .code-block pre {
+    margin: 0;
+    padding: 1rem;
+    overflow-x: auto;
+    border-radius: 0 0 0.75rem 0.75rem;
+    background-color: transparent;
+    border: none;
+  }
+
+  .code-block pre code {
+    font-family: "Fira Code", "Consolas", "Monaco", monospace;
+    font-size: 0.875rem;
+    line-height: 1.7;
   }
 
   code:not(pre code) {
@@ -189,4 +214,3 @@ export const StyledMarkdownContent = styled.div`
     margin-bottom: 0;
   }
 `
-

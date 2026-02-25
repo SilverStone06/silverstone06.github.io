@@ -37,6 +37,29 @@ export function deleteExistingMarkdownFiles(): void {
   }
 }
 
+export function deletePostsBySlugs(slugs: string[]): void {
+  if (!fs.existsSync(POSTS_DIR)) {
+    return
+  }
+
+  const uniqueSlugs = [...new Set(slugs.filter(Boolean))]
+  if (uniqueSlugs.length === 0) return
+
+  for (const slug of uniqueSlugs) {
+    const folderPath = path.join(POSTS_DIR, slug)
+    if (fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()) {
+      fs.rmSync(folderPath, { recursive: true, force: true })
+      console.log(`Deleted folder: ${slug}/`)
+    }
+
+    const legacyFilePath = path.join(POSTS_DIR, `${slug}.md`)
+    if (fs.existsSync(legacyFilePath)) {
+      fs.unlinkSync(legacyFilePath)
+      console.log(`Deleted file: ${slug}.md`)
+    }
+  }
+}
+
 export function createPostDir(slug: string): string {
   const postDir = path.join(POSTS_DIR, slug)
   if (!fs.existsSync(postDir)) {
@@ -48,4 +71,3 @@ export function createPostDir(slug: string): string {
 export function saveMarkdownFile(filePath: string, content: string): void {
   fs.writeFileSync(filePath, content, "utf8")
 }
-

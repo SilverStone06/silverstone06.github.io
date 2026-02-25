@@ -11,10 +11,18 @@ export function buildTocFromMarkdown(content: string): TocItem[] {
   
   const lines = content.split("\n")
   const toc: TocItem[] = []
+  let inCodeFence = false
 
   for (const line of lines) {
     const trimmedLine = line.trim()
-    
+
+    // Ignore headings inside fenced code blocks.
+    if (/^(```|~~~)/.test(trimmedLine)) {
+      inCodeFence = !inCodeFence
+      continue
+    }
+
+    if (inCodeFence) continue
     if (!trimmedLine.startsWith("#")) continue
 
     const h1Match = /^#\s+(.+)$/.exec(trimmedLine)
@@ -66,4 +74,3 @@ export function scrollToHeading(id: string): void {
 
   history.replaceState(null, "", `#${id}`)
 }
-

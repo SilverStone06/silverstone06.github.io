@@ -9,6 +9,7 @@ import MobileProfileCard from "./MobileProfileCard"
 import ProfileCard from "./ProfileCard"
 import ServiceCard from "./ServiceCard"
 import ContactCard from "./ContactCard"
+import VisitorCard from "./VisitorCard"
 import PostList from "./PostList"
 import PinnedPosts from "./PostList/PinnedPosts"
 
@@ -49,6 +50,7 @@ const Feed: React.FC<Props> = () => {
         }}
       >
         <ProfileCard />
+        <VisitorCard />
         <ServiceCard />
         <ContactCard />
         <div className="footer">

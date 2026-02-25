@@ -2,7 +2,7 @@
 
 import path from "path"
 import matter from "gray-matter"
-import { ensurePostsDir, deleteExistingMarkdownFiles, createPostDir, saveMarkdownFile } from "./notion/file-manager"
+import { ensurePostsDir, deletePostsBySlugs, createPostDir, saveMarkdownFile } from "./notion/file-manager"
 import { getPostsWithCheckboxFilter, updateCommitStatusCheckbox } from "./notion/notion-api"
 import { convertNotionPageToMarkdown } from "./notion/markdown-converter"
 import { buildFrontmatterFromPost } from "./notion/frontmatter-builder"
@@ -11,13 +11,18 @@ import { logError } from "../src/libs/utils/error-handler"
 async function syncNotionToMd() {
   ensurePostsDir()
 
-  console.log("Deleting existing markdown files...")
-  deleteExistingMarkdownFiles()
-
   console.log("Fetching posts from Notion (gitCommit checkbox checked only)...")
   const { posts, schema } = await getPostsWithCheckboxFilter()
 
   console.log(`Got ${posts.length} posts from Notion (with gitCommit checkbox checked).`)
+  if (posts.length === 0) {
+    console.log("No posts matched gitCommit checkbox. Existing markdown files were preserved.")
+    return
+  }
+
+  const targetSlugs = posts.map((post) => post.slug).filter(Boolean)
+  console.log(`Deleting existing markdown files for ${targetSlugs.length} slug(s)...`)
+  deletePostsBySlugs(targetSlugs)
 
   const successfullyProcessed: string[] = []
 

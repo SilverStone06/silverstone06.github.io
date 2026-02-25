@@ -11,10 +11,13 @@ const Detail: React.FC<Props> = () => {
   useMermaidEffect()
 
   if (!data) return null
+  const hasRecordMap = Boolean((data as any).recordMap)
+  const shouldRenderNotionPage = data.type[0] === "Page" && hasRecordMap
+
   return (
-    <StyledWrapper data-type={data.type}>
-      {data.type[0] === "Page" && <PageDetail />}
-      {data.type[0] !== "Page" && <PostDetail />}
+    <StyledWrapper data-type={data.type[0]}>
+      {shouldRenderNotionPage && <PageDetail />}
+      {!shouldRenderNotionPage && <PostDetail />}
     </StyledWrapper>
   )
 }

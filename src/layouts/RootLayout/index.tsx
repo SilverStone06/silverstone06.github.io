@@ -5,7 +5,9 @@ import Header from "./Header"
 import styled from "@emotion/styled"
 import Scripts from "src/layouts/RootLayout/Scripts"
 import useGtagEffect from "./useGtagEffect"
+import { useRouter } from "next/router"
 import Prism from "prismjs/prism"
+import "prismjs/themes/prism-tomorrow.css"
 import 'prismjs/components/prism-markup-templating.js'
 import 'prismjs/components/prism-markup.js'
 import 'prismjs/components/prism-bash.js'
@@ -45,11 +47,12 @@ type Props = {
 }
 
 const RootLayout = ({ children }: Props) => {
+  const router = useRouter()
   const [scheme] = useScheme()
   useGtagEffect()
   useEffect(() => {
-    Prism.highlightAll();
-  }, []);
+    Prism.highlightAll()
+  }, [router.asPath])
 
   return (
     <ThemeProvider scheme={scheme}>

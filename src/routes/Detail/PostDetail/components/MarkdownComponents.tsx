@@ -6,6 +6,7 @@ import type {
   MarkdownHeadingProps,
   MarkdownBlockquoteProps,
   MarkdownCodeProps,
+  MarkdownPreProps,
   MarkdownTableProps,
   MarkdownImageProps
 } from "../../../../types/markdown"
@@ -34,14 +35,21 @@ export function createMarkdownComponents(postSlug: string) {
       return <blockquote {...props} />
     },
 
+    pre: ({ node, children }: MarkdownPreProps) => {
+      // react-markdown wraps fenced code with <pre>. We render our own block
+      // in `code` to avoid duplicated nested code containers.
+      return <>{children}</>
+    },
+
     code: ({ node, inline, className, children, ...props }: MarkdownCodeProps) => {
-      const match = /language-(\w+)/.exec(className || "")
+      const match = /language-([\w-]+)/.exec(className || "")
       return !inline && match ? (
-        <pre className={className} {...props}>
-          <code className={className} {...props}>
-            {children}
-          </code>
-        </pre>
+        <div className="code-block" data-language={match[1]}>
+          <div className="code-block-header">{match[1]}</div>
+          <pre className={className} {...props}>
+            <code className={className}>{children}</code>
+          </pre>
+        </div>
       ) : (
         <code className={className} {...props}>
           {children}
@@ -90,4 +98,3 @@ export function createMarkdownComponents(postSlug: string) {
     },
   }
 }
-

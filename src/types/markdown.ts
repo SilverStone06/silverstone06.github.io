@@ -14,10 +14,11 @@ export interface MarkdownCodeProps extends MarkdownNodeProps {
   className?: string
 }
 
+export interface MarkdownPreProps extends MarkdownNodeProps {}
+
 export interface MarkdownTableProps extends MarkdownNodeProps {}
 
 export interface MarkdownImageProps extends MarkdownNodeProps {
   src?: string
   alt?: string
 }
-

@@ -57,14 +57,22 @@ export const getPostsFromMd = async (): Promise<TPosts> => {
   if (Array.isArray(rawAuthor)) {
     author = rawAuthor.map((a) =>
       typeof a === "string"
-        ? { name: a, profile_photo: CONFIG.profile.image }
-        : a
+        ? { id: a, name: a, profile_photo: CONFIG.profile.image }
+        : {
+            id: a.id ?? a.name ?? "author",
+            name: a.name ?? "Unknown",
+            profile_photo: a.profile_photo,
+          }
     )
   } else if (rawAuthor) {
     author = [
       typeof rawAuthor === "string"
-        ? { name: rawAuthor, profile_photo: CONFIG.profile.image }
-        : rawAuthor,
+        ? { id: rawAuthor, name: rawAuthor, profile_photo: CONFIG.profile.image }
+        : {
+            id: rawAuthor.id ?? rawAuthor.name ?? "author",
+            name: rawAuthor.name ?? "Unknown",
+            profile_photo: rawAuthor.profile_photo,
+          },
     ]
   }
 
