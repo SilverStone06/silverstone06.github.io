@@ -163,10 +163,10 @@ function mapPagePropertiesFromOfficialApi(page: any): any {
   return mapped
 }
 
-async function getPostsWithOfficialDatabaseApi(
+async function queryOfficialDatabaseRows(
   notionToken: string,
   databaseId: string
-): Promise<{ posts: TPosts; schema: any }> {
+): Promise<{ rows: any[]; schema: any }> {
   const databaseUuid = toUuid(databaseId)
   const headers = {
     Authorization: `Bearer ${notionToken}`,
@@ -216,20 +216,65 @@ async function getPostsWithOfficialDatabaseApi(
     cursor = queryJson?.next_cursor || undefined
   }
 
+  return { rows, schema }
+}
+
+function getCheckboxValueByName(page: any, targetName: string): boolean | null {
+  const normalizedTarget = normalizePropertyName(targetName)
+  const props = page?.properties || {}
+  for (const [name, prop] of Object.entries(props) as [string, any][]) {
+    if (prop?.type !== "checkbox") continue
+    if (normalizePropertyName(name) === normalizedTarget) {
+      return Boolean(prop?.checkbox)
+    }
+  }
+  return null
+}
+
+function getSlugFromOfficialRow(page: any): string | null {
+  const props = page?.properties || {}
+  let title = ""
+  let slug = ""
+
+  for (const [name, prop] of Object.entries(props) as [string, any][]) {
+    const normalizedName = normalizePropertyName(name)
+    const type = prop?.type
+    if (!type) continue
+
+    if (normalizedName === "slug") {
+      if (type === "rich_text") {
+        slug = getTextFromRichTextArray(prop.rich_text)
+      } else if (type === "title") {
+        slug = getTextFromRichTextArray(prop.title)
+      }
+      continue
+    }
+
+    if (!title && type === "title") {
+      title = getTextFromRichTextArray(prop.title)
+      continue
+    }
+    if (!title && normalizedName === "title" && type === "rich_text") {
+      title = getTextFromRichTextArray(prop.rich_text)
+    }
+  }
+
+  const normalizedSlug = (slug || "").trim()
+  if (normalizedSlug) return normalizedSlug
+  const generated = makeSlug(title)
+  return generated || null
+}
+
+async function getPostsWithOfficialDatabaseApi(
+  notionToken: string,
+  databaseId: string
+): Promise<{ posts: TPosts; schema: any }> {
+  const { rows, schema } = await queryOfficialDatabaseRows(notionToken, databaseId)
+
   const posts = rows
     .filter((row) => {
-      const props = row?.properties || {}
-      for (const [name, prop] of Object.entries(props) as [string, any][]) {
-        if (prop?.type !== "checkbox") continue
-        const normalizedName = normalizePropertyName(name)
-        if (
-          normalizedName === "gitcommit" ||
-          normalizedName === "git_commit"
-        ) {
-          return Boolean(prop?.checkbox)
-        }
-      }
-      return false
+      const checked = getCheckboxValueByName(row, "gitCommit")
+      return checked === true
     })
     .map((row) => mapPagePropertiesFromOfficialApi(row))
     .sort((a: any, b: any) => {
@@ -239,6 +284,27 @@ async function getPostsWithOfficialDatabaseApi(
     })
 
   return { posts: posts as TPosts, schema }
+}
+
+export async function getSlugsToDeleteByUncheckedCommitStatus(): Promise<string[]> {
+  const notionToken = getNotionToken()
+  const id = extractNotionId(CONFIG.notionConfig.pageId as string)
+  if (!notionToken || !id) return []
+
+  try {
+    const { rows } = await queryOfficialDatabaseRows(notionToken, id)
+    const slugs = rows
+      .filter((row) => {
+        const checked = getCheckboxValueByName(row, "commitStatus")
+        return checked === false
+      })
+      .map((row) => getSlugFromOfficialRow(row))
+      .filter((slug): slug is string => Boolean(slug))
+    return [...new Set(slugs)]
+  } catch (error) {
+    logError("Get Slugs By Unchecked CommitStatus", error, { databaseId: id })
+    return []
+  }
 }
 
 function findSchemaFromResponse(response: any, block: any): any {

@@ -3,13 +3,26 @@
 import path from "path"
 import matter from "gray-matter"
 import { ensurePostsDir, deletePostsBySlugs, createPostDir, saveMarkdownFile } from "./notion/file-manager"
-import { getPostsWithCheckboxFilter, updateCommitStatusCheckbox } from "./notion/notion-api"
+import {
+  getPostsWithCheckboxFilter,
+  getSlugsToDeleteByUncheckedCommitStatus,
+  updateCommitStatusCheckbox,
+} from "./notion/notion-api"
 import { convertNotionPageToMarkdown } from "./notion/markdown-converter"
 import { buildFrontmatterFromPost } from "./notion/frontmatter-builder"
 import { logError } from "../src/libs/utils/error-handler"
 
 async function syncNotionToMd() {
   ensurePostsDir()
+
+  console.log("Fetching slugs with unchecked commitStatus...")
+  const slugsToDelete = await getSlugsToDeleteByUncheckedCommitStatus()
+  if (slugsToDelete.length > 0) {
+    console.log(`Deleting ${slugsToDelete.length} slug(s) due to unchecked commitStatus...`)
+    deletePostsBySlugs(slugsToDelete)
+  } else {
+    console.log("No unchecked commitStatus rows found.")
+  }
 
   console.log("Fetching posts from Notion (gitCommit checkbox checked only)...")
   const { posts, schema } = await getPostsWithCheckboxFilter()
