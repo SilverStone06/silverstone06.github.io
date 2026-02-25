@@ -2,7 +2,9 @@
 id: 2b7be0b2-87a1-806c-9bd6-fefab2b14cc2
 title: '[Docker] 기본 명령어'
 slug: docker-basic
-createdTime: 'Wed Nov 26 2025 05:43:50 GMT+0000 (Coordinated Universal Time)'
+date:
+  start_date: '2025-10-30'
+createdTime: 'Wed Nov 26 2025 05:43:00 GMT+0000 (Coordinated Universal Time)'
 status:
   - Public
 type:
@@ -10,10 +12,10 @@ type:
 tags:
   - Docker
 category:
-  - docker
+  - Docker
 summary: Docker 감잡기 ! +) 양 방대 주의
 thumbnail: >-
-  https://www.notion.so/image/attachment%3A41c9d296-99fc-4475-bd92-d73f7f3f5810%3Adocker-black.jpg?table=block&id=2b7be0b2-87a1-806c-9bd6-fefab2b14cc2&cache=v2
+  https://prod-files-secure.s3.us-west-2.amazonaws.com/a52be0b2-87a1-81ed-83b0-00034a6943f0/41c9d296-99fc-4475-bd92-d73f7f3f5810/docker-black.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAZI2LB4662SSJRQAY%2F20260225%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260225T042826Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEDkaCXVzLXdlc3QtMiJIMEYCIQDGwc9wnIl2I%2FuESSaYpJzgitZNfA%2F1jQkDOMiZeWD8%2BwIhAJ71OVK5qZRTfn3SZmf9TLxA7CsRI1JT%2FzisZAFcBoSXKv8DCAIQABoMNjM3NDIzMTgzODA1IgxQZ33owBczhPXZcasq3AM8V4pzjZ001QDPKx1K90Br82%2FBOGPSxslAsQOw2hVAf2xpyxu5%2FrzQ8MXXf4CvouMDMon%2BbDNpzVKfQgbm2qy60PZxwRQrGbH5JiI0Squzxydyf1DmjrWKvDmupEiFdIsCAUnmGm8tLloBbQiqDLIwsnpQBcJdvSYEbKJKww491wlTRIT3w5DWmi4BRHd5YB9l42%2BG4AQgDrNNhp93oDh0zxbr0jG3vufVAOoGq1PHMRqMfoXiwoJb1w%2Fmqq4NjBpUKRVIB4MJpUwLtffP4A6FB5%2BMPNPaMzI3T%2BNrsF%2FbYn3Fyj8L%2Ft6%2BzOwScHn6D%2F47xAkqTKp3mOPR03lETOJLfZlx0tBJ6ObhbJ6iJXU%2BZ26fFaCXmSIumjJ%2BS9dxEMa2UozNw5i%2BzTSg2IlmbEMSNI7KMpZs4Pf6jdGfMGRZ3yMIQN08EjaKTXiDgbFvcIJ4pCJSQVzV%2B8IT5VNqj5LaJW4Z0ghn30mmTAGKXTzUn2rEqVZP6GMWJA5C51ONaWVXDYlGzxLh4k5lEm1DIqmyoTBJ1MpW7kwWjwKJVCRSzqpYo%2BboJqDNxkZIRb4yrN%2B9uatmvJpkEeqgCu2YaxmJhzx0ga%2BeOZCjPLG6qKYmeIA8hAnDqNeZhV9vwTDwhvnMBjqkAW4scUPHu7MBOPPHo6bTJVCjBRcwK1G7xwyHN37AvZDREPYNEn9ps0%2FkgA%2BPn%2FhKmchBW2bHgrqwp5e6L%2BoW0fXx2DgbOuOcMH%2F8wX%2FTZhdEAVjcyljAAfV%2FRXtH4eOi9sGyzsHumFu2N%2BkF8xezKN70jxu7cg9mE%2FZAeGeIPyDbru2ZH2sRMhHGWNzhOKMlsB2%2BuGxGoBwvTQ%2BZUYLs%2Faz9ETak&X-Amz-Signature=8dd4fd131a331eda9730c82a66ac9d41d4001bf0a5e1506be3c8a7dc19cb5c51&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject
 author:
   - id: 29ad872b-594c-816f-bc65-000286fbcef6
     name: 송은석

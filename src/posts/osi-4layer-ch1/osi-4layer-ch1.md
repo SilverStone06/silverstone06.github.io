@@ -3,8 +3,8 @@ id: 2a9be0b2-87a1-816f-9598-f2347a80c017
 title: '[Network] OSI 7 Layers : 4 Layer (Transport Layer) Ch.1'
 slug: osi-4layer-ch1
 date:
-  start_date: '2025-10-22'
-createdTime: 'Wed Nov 12 2025 13:47:44 GMT+0000 (Coordinated Universal Time)'
+  start_date: '2025-10-10'
+createdTime: 'Wed Nov 12 2025 13:47:00 GMT+0000 (Coordinated Universal Time)'
 status:
   - Public
 type:

@@ -3,8 +3,8 @@ id: 2c0be0b2-87a1-8090-ab2f-f3bafdf03292
 title: '[Linux] Basic Ch.2 (네트워크 기초)'
 slug: linux-ch2
 date:
-  start_date: '2025-11-28'
-createdTime: 'Fri Dec 05 2025 07:04:48 GMT+0000 (Coordinated Universal Time)'
+  start_date: '2025-10-27'
+createdTime: 'Fri Dec 05 2025 07:04:00 GMT+0000 (Coordinated Universal Time)'
 status:
   - Public
 type:

@@ -4,7 +4,7 @@ title: '[Network] OSI 7 Layers : 2 Layer (DataLink Layer)'
 slug: osi-2layer
 date:
   start_date: '2025-10-02'
-createdTime: 'Wed Nov 12 2025 13:47:44 GMT+0000 (Coordinated Universal Time)'
+createdTime: 'Wed Nov 12 2025 13:47:00 GMT+0000 (Coordinated Universal Time)'
 status:
   - Public
 type:

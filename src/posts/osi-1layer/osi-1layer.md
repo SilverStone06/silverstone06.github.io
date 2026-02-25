@@ -4,7 +4,7 @@ title: '[Network] OSI 7 Layers : 1 Layer (Physical Layer)'
 slug: osi-1layer
 date:
   start_date: '2025-09-29'
-createdTime: 'Wed Nov 12 2025 14:13:55 GMT+0000 (Coordinated Universal Time)'
+createdTime: 'Wed Nov 12 2025 14:13:00 GMT+0000 (Coordinated Universal Time)'
 status:
   - Public
 type:

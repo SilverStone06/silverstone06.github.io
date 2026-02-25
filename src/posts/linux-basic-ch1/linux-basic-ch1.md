@@ -3,8 +3,8 @@ id: 2b6be0b2-87a1-8008-ae88-d2c6890da63d
 title: '[Linux] Basic Ch.1 (명령어, 파일권한, 사용자/그룹 관리)'
 slug: linux-basic-ch1
 date:
-  start_date: '2025-11-05'
-createdTime: 'Tue Nov 25 2025 07:39:06 GMT+0000 (Coordinated Universal Time)'
+  start_date: '2025-10-23'
+createdTime: 'Tue Nov 25 2025 07:39:00 GMT+0000 (Coordinated Universal Time)'
 status:
   - Public
 type:

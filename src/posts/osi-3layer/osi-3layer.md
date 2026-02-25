@@ -3,8 +3,8 @@ id: 2a9be0b2-87a1-8171-8f74-cc3ab09dad0c
 title: '[Network] OSI 7 Layers : 3 Layer (Network Layer)'
 slug: osi-3layer
 date:
-  start_date: '2025-10-06'
-createdTime: 'Wed Nov 12 2025 13:47:44 GMT+0000 (Coordinated Universal Time)'
+  start_date: '2025-10-08'
+createdTime: 'Wed Nov 12 2025 13:47:00 GMT+0000 (Coordinated Universal Time)'
 status:
   - Public
 type:

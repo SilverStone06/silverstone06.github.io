@@ -3,8 +3,8 @@ id: 2b6be0b2-87a1-802b-9654-e1eb8ec80fcf
 title: '[Network] OSI 7 Layers : 5·6·7 Layer (Session / Presentation / Application)'
 slug: osi-567layer
 date:
-  start_date: '2025-10-30'
-createdTime: 'Tue Nov 25 2025 05:54:54 GMT+0000 (Coordinated Universal Time)'
+  start_date: '2025-10-16'
+createdTime: 'Tue Nov 25 2025 05:54:00 GMT+0000 (Coordinated Universal Time)'
 status:
   - Public
 type:
