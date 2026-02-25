@@ -39,6 +39,208 @@ function normalizePropertyName(name: string | undefined): string {
   return (name || "").replace(/\s+/g, "").toLowerCase()
 }
 
+function extractNotionId(input: string): string {
+  if (!input) return input
+  const trimmed = input.trim()
+  const match = trimmed.match(/[0-9a-f]{32}/i)
+  if (match) return match[0]
+  return trimmed
+}
+
+function toUuid(id: string): string {
+  if (!id) return id
+  const normalized = extractNotionId(id)
+  if (/^[0-9a-f]{32}$/i.test(normalized)) return idToUuid(normalized)
+  return normalized
+}
+
+function getTextFromRichTextArray(items: any[] | undefined): string {
+  if (!Array.isArray(items)) return ""
+  return items.map((item) => item?.plain_text || "").join("")
+}
+
+function makeSlug(input: string): string {
+  const normalized = (input || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .replace(/\s+/g, "-")
+  return normalized || ""
+}
+
+function mapPagePropertiesFromOfficialApi(page: any): any {
+  const properties = page?.properties || {}
+  const mapped: any = {
+    id: page?.id,
+    slug: "",
+    title: "",
+    status: ["Public"],
+    type: ["Post"],
+    tags: [],
+    category: [],
+    summary: "",
+    thumbnail: null,
+    author: [],
+    date: { start_date: page?.created_time || new Date().toISOString() },
+    createdTime: new Date(page?.created_time || Date.now()).toString(),
+    fullWidth: false,
+  }
+
+  for (const [name, prop] of Object.entries(properties) as [string, any][]) {
+    const normalizedName = normalizePropertyName(name)
+    const type = prop?.type
+    if (!type) continue
+
+    if (type === "title") {
+      const value = getTextFromRichTextArray(prop.title)
+      if (value && !mapped.title) mapped.title = value
+      continue
+    }
+
+    if (type === "rich_text") {
+      const value = getTextFromRichTextArray(prop.rich_text)
+      if (normalizedName === "slug") mapped.slug = value
+      if (normalizedName === "summary") mapped.summary = value
+      if (normalizedName === "title" && !mapped.title) mapped.title = value
+      continue
+    }
+
+    if (type === "select") {
+      const value = prop?.select?.name
+      if (!value) continue
+      if (normalizedName === "status") mapped.status = [value]
+      if (normalizedName === "type") mapped.type = [value]
+      if (normalizedName === "category") mapped.category = [value]
+      continue
+    }
+
+    if (type === "multi_select") {
+      const values = (prop?.multi_select || []).map((item: any) => item?.name).filter(Boolean)
+      if (normalizedName === "tags") mapped.tags = values
+      if (normalizedName === "category") mapped.category = values
+      if (normalizedName === "status" && values.length) mapped.status = values
+      if (normalizedName === "type" && values.length) mapped.type = values
+      continue
+    }
+
+    if (type === "date" && prop?.date?.start) {
+      mapped.date = { start_date: prop.date.start }
+      continue
+    }
+
+    if (type === "people") {
+      mapped.author = (prop.people || []).map((person: any) => ({
+        id: person?.id || "author",
+        name: person?.name || "Unknown",
+        profile_photo: person?.avatar_url || null,
+      }))
+      continue
+    }
+
+    if (type === "files") {
+      const first = prop.files?.[0]
+      const url = first?.external?.url || first?.file?.url || null
+      if (normalizedName === "thumbnail") mapped.thumbnail = url
+      continue
+    }
+
+    if (type === "url") {
+      if (normalizedName === "thumbnail") mapped.thumbnail = prop?.url || null
+      continue
+    }
+  }
+
+  if (!mapped.title) {
+    mapped.title = mapped.slug || page?.id || "Untitled"
+  }
+  if (!mapped.slug) {
+    mapped.slug = makeSlug(mapped.title) || mapped.id
+  }
+  if (!Array.isArray(mapped.author)) mapped.author = []
+  if (!mapped.author.length) {
+    mapped.author = [{ id: "author", name: "Unknown", profile_photo: null }]
+  }
+  return mapped
+}
+
+async function getPostsWithOfficialDatabaseApi(
+  notionToken: string,
+  databaseId: string
+): Promise<{ posts: TPosts; schema: any }> {
+  const databaseUuid = toUuid(databaseId)
+  const headers = {
+    Authorization: `Bearer ${notionToken}`,
+    "Notion-Version": "2022-06-28",
+    "Content-Type": "application/json",
+  }
+
+  const dbRes = await fetch(`https://api.notion.com/v1/databases/${databaseUuid}`, {
+    method: "GET",
+    headers,
+  })
+  if (!dbRes.ok) {
+    const text = await dbRes.text()
+    throw new Error(`Failed to fetch database metadata: ${dbRes.status} ${text}`)
+  }
+
+  const dbJson: any = await dbRes.json()
+  const dbProps = dbJson?.properties || {}
+  const schema: any = {}
+  for (const [name, prop] of Object.entries(dbProps) as [string, any][]) {
+    if (!prop?.id || !prop?.type) continue
+    schema[prop.id] = { name, type: prop.type }
+  }
+
+  let hasMore = true
+  let cursor: string | undefined = undefined
+  const rows: any[] = []
+
+  while (hasMore) {
+    const payload: any = {
+      page_size: 100,
+      ...(cursor ? { start_cursor: cursor } : {}),
+    }
+    const queryRes = await fetch(`https://api.notion.com/v1/databases/${databaseUuid}/query`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    })
+    if (!queryRes.ok) {
+      const text = await queryRes.text()
+      throw new Error(`Failed to query database: ${queryRes.status} ${text}`)
+    }
+
+    const queryJson: any = await queryRes.json()
+    rows.push(...(queryJson?.results || []))
+    hasMore = Boolean(queryJson?.has_more)
+    cursor = queryJson?.next_cursor || undefined
+  }
+
+  const posts = rows
+    .filter((row) => {
+      const props = row?.properties || {}
+      for (const [name, prop] of Object.entries(props) as [string, any][]) {
+        if (prop?.type !== "checkbox") continue
+        const normalizedName = normalizePropertyName(name)
+        if (
+          normalizedName === "gitcommit" ||
+          normalizedName === "git_commit"
+        ) {
+          return Boolean(prop?.checkbox)
+        }
+      }
+      return false
+    })
+    .map((row) => mapPagePropertiesFromOfficialApi(row))
+    .sort((a: any, b: any) => {
+      const dateA = new Date(a?.date?.start_date || a?.createdTime || 0).getTime()
+      const dateB = new Date(b?.date?.start_date || b?.createdTime || 0).getTime()
+      return dateB - dateA
+    })
+
+  return { posts: posts as TPosts, schema }
+}
+
 function findSchemaFromResponse(response: any, block: any): any {
   const collections = Object.entries(response?.collection || {})
   for (const [, collection] of collections) {
@@ -76,8 +278,9 @@ function fallbackPageIdsFromBlock(block: any): string[] {
  * "gitCommit" 체크박스가 체크된 포스트만 가져옵니다.
  */
 export async function getPostsWithCheckboxFilter(): Promise<{ posts: TPosts; schema: any }> {
-  const id = CONFIG.notionConfig.pageId as string
+  const id = extractNotionId(CONFIG.notionConfig.pageId as string)
   const api = new NotionAPI()
+  const notionToken = getNotionToken()
 
   console.log("[DEBUG] Fetching Notion page...")
   const response = await api.getPage(id)
@@ -89,6 +292,10 @@ export async function getPostsWithCheckboxFilter(): Promise<{ posts: TPosts; sch
 
   if (!schema || Object.keys(schema).length === 0) {
     console.log("[DEBUG] Could not find collection schema from response")
+    if (notionToken) {
+      console.log("[DEBUG] Falling back to official Notion database API...")
+      return await getPostsWithOfficialDatabaseApi(notionToken, id)
+    }
     return { posts: [] as TPosts, schema: {} }
   }
 
