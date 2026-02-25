@@ -186,6 +186,8 @@ jobs:
       - name: Build (static export)
         env:
           NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
+          NEXT_PUBLIC_GOATCOUNTER_CODE: ${{ secrets.NEXT_PUBLIC_GOATCOUNTER_CODE }}
+          NEXT_PUBLIC_GOATCOUNTER_HOST: ${{ secrets.NEXT_PUBLIC_GOATCOUNTER_HOST }}
         run: |
           npm run build
           touch out/.nojekyll
