@@ -1,6 +1,7 @@
 import React from "react"
 import Image from "next/image"
 import { slugify } from "../utils/slugify"
+import { extractPlainText, normalizeHeadingText } from "../utils/heading"
 import { isLocalImagePath } from "../../../../libs/utils/image"
 import type {
   MarkdownHeadingProps,
@@ -14,19 +15,19 @@ import type {
 export function createMarkdownComponents(postSlug: string) {
   return {
     h1: ({ node, ...props }: MarkdownHeadingProps) => {
-      const text = String(props.children ?? "")
+      const text = normalizeHeadingText(extractPlainText(props.children))
       const id = slugify(text)
       return <h1 id={id} {...props} />
     },
 
     h2: ({ node, ...props }: MarkdownHeadingProps) => {
-      const text = String(props.children ?? "")
+      const text = normalizeHeadingText(extractPlainText(props.children))
       const id = slugify(text)
       return <h2 id={id} {...props} />
     },
 
     h3: ({ node, ...props }: MarkdownHeadingProps) => {
-      const text = String(props.children ?? "")
+      const text = normalizeHeadingText(extractPlainText(props.children))
       const id = slugify(text)
       return <h3 id={id} {...props} />
     },

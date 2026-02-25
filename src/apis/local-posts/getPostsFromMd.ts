@@ -52,7 +52,7 @@ export const getPostsFromMd = async (): Promise<TPosts> => {
     // author가 문자열 또는 문자열 배열로 되어 있을 수 있어서 통일
    const rawAuthor = fm.author
 
-  let author: Array<{ id: string; name: string; profile_photo?: string }> = []
+  let author: Array<{ id: string; name: string; profile_photo: string | null }> = []
 
   if (Array.isArray(rawAuthor)) {
     author = rawAuthor.map((a) =>
@@ -61,7 +61,7 @@ export const getPostsFromMd = async (): Promise<TPosts> => {
         : {
             id: a.id ?? a.name ?? "author",
             name: a.name ?? "Unknown",
-            profile_photo: a.profile_photo,
+            profile_photo: a.profile_photo ?? null,
           }
     )
   } else if (rawAuthor) {
@@ -71,7 +71,7 @@ export const getPostsFromMd = async (): Promise<TPosts> => {
         : {
             id: rawAuthor.id ?? rawAuthor.name ?? "author",
             name: rawAuthor.name ?? "Unknown",
-            profile_photo: rawAuthor.profile_photo,
+            profile_photo: rawAuthor.profile_photo ?? null,
           },
     ]
   }
@@ -115,7 +115,8 @@ export const getPostsFromMd = async (): Promise<TPosts> => {
       content,
     }
 
-    return post
+    // Next.js getStaticProps must return JSON-serializable values only.
+    return JSON.parse(JSON.stringify(post))
   })
 
   const sortedData = sortPostsByDate(data)

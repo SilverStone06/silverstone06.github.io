@@ -1,8 +1,10 @@
 export function slugify(text: string): string {
-  return text
-    .toLowerCase()
+  const normalized = text
     .trim()
-    .replace(/[^\w\s-]/g, "")
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
     .replace(/\s+/g, "-")
-}
 
+  if (normalized) return normalized.toLowerCase()
+
+  return encodeURIComponent(text.trim().toLowerCase()).replace(/%/g, "-")
+}

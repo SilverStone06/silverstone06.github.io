@@ -1,4 +1,5 @@
 import { slugify } from "./slugify"
+import { normalizeHeadingText } from "./heading"
 
 export interface TocItem {
   id: string
@@ -12,13 +13,22 @@ export function buildTocFromMarkdown(content: string): TocItem[] {
   const lines = content.split("\n")
   const toc: TocItem[] = []
   let inCodeFence = false
+  let currentFenceMarker: "`" | "~" | null = null
 
   for (const line of lines) {
     const trimmedLine = line.trim()
 
     // Ignore headings inside fenced code blocks.
-    if (/^(```|~~~)/.test(trimmedLine)) {
-      inCodeFence = !inCodeFence
+    const fenceMatch = /^([`~]{3,})/.exec(trimmedLine)
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0] as "`" | "~"
+      if (!inCodeFence) {
+        inCodeFence = true
+        currentFenceMarker = marker
+      } else if (currentFenceMarker === marker) {
+        inCodeFence = false
+        currentFenceMarker = null
+      }
       continue
     }
 
@@ -44,9 +54,11 @@ export function buildTocFromMarkdown(content: string): TocItem[] {
     }
 
     if (text) {
+      const normalizedText = normalizeHeadingText(text)
+      if (!normalizedText) continue
       toc.push({
-        id: slugify(text),
-        text,
+        id: slugify(normalizedText),
+        text: normalizedText,
         indentLevel,
       })
     }
