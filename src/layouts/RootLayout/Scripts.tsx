@@ -3,6 +3,15 @@ import { CONFIG } from "site.config"
 
 const Scripts: React.FC = () => (
   <>
+    {CONFIG?.goatCounter?.enable === true &&
+      (CONFIG.goatCounter.host || CONFIG.goatCounter.code) && (
+        <Script
+          data-goatcounter={`https://${CONFIG.goatCounter.host || `${CONFIG.goatCounter.code}.goatcounter.com`}/count`}
+          async
+          src="https://gc.zgo.at/count.js"
+        />
+      )}
+
     {CONFIG?.googleAnalytics?.enable === true && (
       <>
         <Script

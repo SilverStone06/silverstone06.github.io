@@ -68,10 +68,11 @@ const CONFIG = {
       appid: "", // Embed Code -> data-app-id value
     },
   },
-  visitorCounter: {
+  goatCounter: {
     enable: true,
-    namespace: "silverstone06-blog",
-    key: "visits-total",
+    code: process.env.NEXT_PUBLIC_GOATCOUNTER_CODE || "",
+    host: process.env.NEXT_PUBLIC_GOATCOUNTER_HOST || "",
+    aggregatePath: "/__visitors__",
     timezone: "Asia/Seoul",
   },
   isProd: process.env.VERCEL_ENV === "production", // distinguish between development and production environment (ref: https://vercel.com/docs/environment-variables#system-environment-variables)

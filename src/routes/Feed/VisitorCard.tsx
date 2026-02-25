@@ -4,51 +4,57 @@ import { Emoji } from "src/components/Emoji"
 import { CONFIG } from "site.config"
 
 type VisitorCounts = {
-  daily: number | null
-  total: number | null
+  daily: number
+  total: number
 }
 
-type VisitorCounterConfig = {
+type GoatCounterConfig = {
   enable?: boolean
-  namespace?: string
-  key?: string
+  code?: string
+  host?: string
+  aggregatePath?: string
   timezone?: string
-  apiBaseUrl?: string
+}
+
+declare global {
+  interface Window {
+    goatcounter?: {
+      count?: (options?: { path?: string; title?: string }) => void
+    }
+  }
 }
 
 function formatDateInTimeZone(timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date())
 }
 
-function parseCountValue(data: any): number | null {
-  if (typeof data?.value === "number") return data.value
-  if (typeof data?.value === "string") {
-    const parsed = Number(data.value)
-    return Number.isNaN(parsed) ? null : parsed
+function resolveGoatBaseUrl(config: GoatCounterConfig): string {
+  if (config.host) {
+    return `https://${config.host.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`
   }
-  return null
+  if (config.code) {
+    return `https://${config.code}.goatcounter.com`
+  }
+  return ""
 }
 
-async function fetchCount(
-  action: "hit" | "get",
-  namespace: string,
-  key: string,
-  apiBaseUrl: string
-) {
-  const base = apiBaseUrl.replace(/\/+$/, "")
-  const encodedUrl = `${base}/${action}/${encodeURIComponent(namespace)}/${encodeURIComponent(key)}`
-  const rawUrl = `${base}/${action}/${namespace}/${key}`
-  const urls = [encodedUrl, rawUrl]
-
-  for (const url of urls) {
-    const response = await fetch(url, { cache: "no-store" })
-    if (!response.ok) continue
-    const data = await response.json()
-    const value = parseCountValue(data)
-    if (value !== null) return value
+function getLocalStorageNumber(key: string): number {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return 0
+    const parsed = Number(raw)
+    return Number.isNaN(parsed) ? 0 : parsed
+  } catch {
+    return 0
   }
+}
 
-  throw new Error("Count API request failed")
+function setLocalStorageNumber(key: string, value: number) {
+  try {
+    localStorage.setItem(key, String(value))
+  } catch {
+    // Ignore storage failures.
+  }
 }
 
 function getSessionItemSafely(key: string): string | null {
@@ -63,47 +69,94 @@ function setSessionItemSafely(key: string, value: string) {
   try {
     sessionStorage.setItem(key, value)
   } catch {
-    // Ignore storage failures (private mode / blocked storage).
+    // Ignore storage failures.
   }
 }
 
-const VisitorCard: React.FC = () => {
-  const visitorCounter = ((CONFIG as any).visitorCounter ?? {}) as VisitorCounterConfig
-  const enable = Boolean(visitorCounter.enable)
-  const namespace = String(visitorCounter.namespace ?? "").trim()
-  const key = String(visitorCounter.key ?? "").trim()
-  const timeZone = String(visitorCounter.timezone ?? "Asia/Seoul")
-  const apiBaseUrl = String(visitorCounter.apiBaseUrl ?? "https://api.countapi.xyz")
-  const [counts, setCounts] = useState<VisitorCounts>({ daily: null, total: null })
+async function fetchGoatCounterCount(
+  baseUrl: string,
+  path: string,
+  start?: string
+): Promise<number> {
+  const encodedPath = encodeURIComponent(path)
+  const params = new URLSearchParams()
+  if (start) params.set("start", start)
+  const query = params.toString()
+  const url = `${baseUrl}/counter/${encodedPath}.json${query ? `?${query}` : ""}`
 
-  const dayKey = useMemo(() => {
-    const dateKey = formatDateInTimeZone(timeZone)
-    return `${key}-${dateKey}`
-  }, [key, timeZone])
+  const response = await fetch(url, { cache: "no-store" })
+  if (!response.ok) {
+    throw new Error(`GoatCounter request failed: ${response.status}`)
+  }
+  const data = await response.json()
+  const count = Number(data?.count)
+  if (Number.isNaN(count)) {
+    throw new Error("GoatCounter response does not include numeric count")
+  }
+  return count
+}
+
+function countAggregatePathWithRetry(path: string, retry: number = 6): void {
+  const run = (remaining: number) => {
+    if (typeof window === "undefined") return
+    const counter = window.goatcounter?.count
+    if (typeof counter === "function") {
+      counter({ path, title: "Visitors Aggregate" })
+      return
+    }
+    if (remaining <= 0) return
+    window.setTimeout(() => run(remaining - 1), 400)
+  }
+  run(retry)
+}
+
+const VisitorCard: React.FC = () => {
+  const goat = ((CONFIG as any).goatCounter ?? {}) as GoatCounterConfig
+  const enable = Boolean(goat.enable)
+  const baseUrl = resolveGoatBaseUrl(goat)
+  const aggregatePath = String(goat.aggregatePath ?? "/__visitors__")
+  const timeZone = String(goat.timezone ?? "Asia/Seoul")
+  const [counts, setCounts] = useState<VisitorCounts>({ daily: 0, total: 0 })
+
+  const dateKey = useMemo(() => formatDateInTimeZone(timeZone), [timeZone])
 
   useEffect(() => {
-    if (!enable || !namespace || !key) return
+    if (!enable || !baseUrl) return
 
-    const sessionKey = `visitor-counted:${namespace}:${dayKey}`
+    const sessionKey = `visitor-counted-goat:${dateKey}:${aggregatePath}`
+    const localTotalKey = `visitor-goat-total:${aggregatePath}`
+    const localDailyKey = `visitor-goat-daily:${dateKey}:${aggregatePath}`
     const shouldIncrement = !getSessionItemSafely(sessionKey)
-    const action: "hit" | "get" = shouldIncrement ? "hit" : "get"
+
+    const localTotal = getLocalStorageNumber(localTotalKey)
+    const localDaily = getLocalStorageNumber(localDailyKey)
+    const fallbackTotal = shouldIncrement ? localTotal + 1 : localTotal
+    const fallbackDaily = shouldIncrement ? localDaily + 1 : localDaily
+    setCounts({ total: fallbackTotal, daily: fallbackDaily })
+
+    if (shouldIncrement) {
+      countAggregatePathWithRetry(aggregatePath)
+      setSessionItemSafely(sessionKey, "1")
+      setLocalStorageNumber(localTotalKey, fallbackTotal)
+      setLocalStorageNumber(localDailyKey, fallbackDaily)
+    }
 
     Promise.all([
-      fetchCount(action, namespace, key, apiBaseUrl),
-      fetchCount(action, namespace, dayKey, apiBaseUrl),
+      fetchGoatCounterCount(baseUrl, aggregatePath),
+      fetchGoatCounterCount(baseUrl, aggregatePath, dateKey),
     ])
       .then(([total, daily]) => {
-        if (shouldIncrement) {
-          setSessionItemSafely(sessionKey, "1")
-        }
+        setLocalStorageNumber(localTotalKey, total)
+        setLocalStorageNumber(localDailyKey, daily)
         setCounts({ total, daily })
       })
-      .catch(() => {
-        setCounts({ total: null, daily: null })
+      .catch((error) => {
+        console.warn("[VisitorCard] GoatCounter fetch failed, using local fallback.", error)
+        setCounts({ total: fallbackTotal, daily: fallbackDaily })
       })
-  }, [apiBaseUrl, dayKey, enable, key, namespace])
+  }, [aggregatePath, baseUrl, dateKey, enable])
 
-  if (!enable || !namespace || !key) return null
+  if (!enable) return null
 
   return (
     <>
@@ -113,11 +166,11 @@ const VisitorCard: React.FC = () => {
       <StyledWrapper>
         <div className="row">
           <span>Today</span>
-          <strong>{counts.daily ?? "-"}</strong>
+          <strong>{counts.daily}</strong>
         </div>
         <div className="row">
           <span>Total</span>
-          <strong>{counts.total ?? "-"}</strong>
+          <strong>{counts.total}</strong>
         </div>
       </StyledWrapper>
     </>
