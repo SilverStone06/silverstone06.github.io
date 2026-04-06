@@ -25,10 +25,6 @@ async function convertRecordMapToMarkdown(recordMap: RecordMap, pageId: string, 
 
   console.log(`    [DEBUG] Total blocks in recordMap: ${Object.keys(blockMap).length}`)
 
-  const sampleId = Object.keys(blockMap)[0]
-  console.log(`    [DEBUG] Sample block id: ${sampleId}`)
-  console.log(`    [DEBUG] Sample block raw: ${JSON.stringify(blockMap[sampleId], null, 2)}`)
-
   const rootBlockId = findRootBlockId(blockMap, pageId)
 
   if (!rootBlockId) {
@@ -63,9 +59,10 @@ function getBlockValue(blockMap: BlockMap, blockId: string): NotionBlock | undef
   const entry = blockMap[blockId] as any
   if (!entry) return undefined
 
-  if (entry.value) return entry.value
-  if (entry.block?.value) return entry.block.value
-  if (entry.block) return entry.block
+  if (entry?.value?.value) return entry.value.value
+  if (entry?.value) return entry.value
+  if (entry?.block?.value) return entry.block.value
+  if (entry?.block) return entry.block
 
   return entry as NotionBlock
 }
@@ -184,13 +181,13 @@ async function convertBlockToMarkdown(
 
     case "bulleted_list":
     case "bulleted_list_item": {
-      const indent = "  ".repeat(depth)
+      const indent = "  ".repeat(Math.max(depth - 1, 0))
       return `${indent}- ${content}\n`
     }
 
     case "numbered_list":
     case "numbered_list_item": {
-      const indent = "  ".repeat(depth)
+      const indent = "  ".repeat(Math.max(depth - 1, 0))
       return `${indent}1. ${content}\n`
     }
 
