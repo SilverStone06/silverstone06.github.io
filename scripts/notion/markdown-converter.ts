@@ -2,7 +2,7 @@ import { getTextContent, idToUuid } from "notion-utils"
 import { getRecordMap } from "../../src/apis/notion-client/getRecordMap"
 import { downloadAndSaveImage } from "./image-downloader"
 import type { NotionBlock, BlockMap, RecordMap, ImageCounter } from "./types"
-import { NotionError, logError } from "../../src/libs/utils/error-handler"
+import { logError } from "../../src/libs/utils/error-handler"
 
 export async function convertNotionPageToMarkdown(pageId: string, postSlug: string): Promise<string> {
   try {
@@ -13,7 +13,7 @@ export async function convertNotionPageToMarkdown(pageId: string, postSlug: stri
     console.log(`  [DEBUG] Converted markdown length: ${markdown.length} characters`)
     return markdown
   } catch (error) {
-    logError('Convert Notion Page', error, { pageId, postSlug })
+    logError("Convert Notion Page", error, { pageId, postSlug })
     return ""
   }
 }
@@ -21,7 +21,6 @@ export async function convertNotionPageToMarkdown(pageId: string, postSlug: stri
 async function convertRecordMapToMarkdown(recordMap: RecordMap, pageId: string, postSlug: string): Promise<string> {
   const blocks: string[] = []
   const blockMap = recordMap.block || {}
-
   const imageCounter: ImageCounter = { count: 0 }
 
   console.log(`    [DEBUG] Total blocks in recordMap: ${Object.keys(blockMap).length}`)
@@ -31,59 +30,73 @@ async function convertRecordMapToMarkdown(recordMap: RecordMap, pageId: string, 
   if (!rootBlockId) {
     console.log(`    [DEBUG] No root page block found. Available block types:`)
     Object.keys(blockMap).slice(0, 10).forEach((id) => {
-      const block = blockMap[id]?.value
+      const block = getBlockValue(blockMap, id)
       console.log(`      - ${id}: type=${block?.type}, parent_id=${block?.parent_id}`)
     })
     return ""
   }
 
-  const rootBlock = blockMap[rootBlockId]?.value
+  const rootBlock = getBlockValue(blockMap, rootBlockId)
   if (rootBlock) {
     console.log(`    [DEBUG] Root block type: ${rootBlock.type}`)
     console.log(`    [DEBUG] Root block has ${rootBlock.content?.length || 0} children`)
     const markdown = await convertBlockWithChildren(rootBlock, blockMap, rootBlockId, 0, postSlug, imageCounter)
-    if (markdown) {
-      blocks.push(markdown)
-    }
+    if (markdown) blocks.push(markdown)
   }
 
   return blocks.join("")
 }
 
+function normalizeBlockId(id: string): string {
+  if (!id) return id
+  if (id.includes("-")) return id
+  return idToUuid(id)
+}
+
+function getBlockValue(blockMap: BlockMap, blockId: string): NotionBlock | undefined {
+  const entry = blockMap[blockId] as { value?: NotionBlock } | NotionBlock | undefined
+  if (!entry) return undefined
+  if ("value" in entry && entry.value) return entry.value
+  return entry as NotionBlock
+}
+
 function findRootBlockId(blockMap: BlockMap, pageId: string): string | undefined {
-  const pageUuid = idToUuid(pageId)
-  const pageIdNoHyphens = pageId.replace(/-/g, '')
+  const normalizedPageId = normalizeBlockId(pageId)
+  const pageIdNoHyphens = normalizedPageId.replace(/-/g, "")
   const pageUuidFromNoHyphens = idToUuid(pageIdNoHyphens)
 
   console.log(`    [DEBUG] Original pageId: ${pageId}`)
-  console.log(`    [DEBUG] Converted pageUuid: ${pageUuid}`)
+  console.log(`    [DEBUG] Normalized pageId: ${normalizedPageId}`)
   console.log(`    [DEBUG] pageUuidFromNoHyphens: ${pageUuidFromNoHyphens}`)
 
-  const possibleIds = [pageUuid, pageId, pageUuidFromNoHyphens, pageIdNoHyphens]
+  const possibleIds = Array.from(new Set([
+    pageId,
+    normalizedPageId,
+    pageUuidFromNoHyphens,
+    pageIdNoHyphens,
+  ]))
 
   for (const testId of possibleIds) {
-    if (blockMap[testId]?.value?.type === "page") {
+    if (getBlockValue(blockMap, testId)?.type === "page") {
       console.log(`    [DEBUG] Found root page block by direct ID: ${testId}`)
       return testId
     }
   }
 
   const pageBlocks = Object.keys(blockMap).filter((id) => {
-    const block = blockMap[id]?.value
+    const block = getBlockValue(blockMap, id)
     return block?.type === "page"
   })
-  console.log(`    [DEBUG] Found ${pageBlocks.length} page blocks: ${pageBlocks.slice(0, 3).join(', ')}`)
+  console.log(`    [DEBUG] Found ${pageBlocks.length} page blocks: ${pageBlocks.slice(0, 3).join(", ")}`)
 
   const rootBlockId = pageBlocks.find((id) => {
-    const block = blockMap[id]?.value
+    const block = getBlockValue(blockMap, id)
     const hasNoParent = !block?.parent_id
     const parentMatches = possibleIds.includes(block?.parent_id || "")
     return hasNoParent || parentMatches
   })
 
-  if (rootBlockId) {
-    return rootBlockId
-  }
+  if (rootBlockId) return rootBlockId
 
   if (pageBlocks.length > 0) {
     console.log(`    [DEBUG] Using first page block as root: ${pageBlocks[0]}`)
@@ -103,26 +116,21 @@ async function convertBlockWithChildren(
 ): Promise<string> {
   const result: string[] = []
 
-  // Handle table specially
   if (block.type === "table") {
     return await convertTable(block, blockMap)
   }
 
   if (block.type !== "page") {
     const markdown = await convertBlockToMarkdown(block, blockMap, depth, postSlug, imageCounter)
-    if (markdown) {
-      result.push(markdown)
-    }
+    if (markdown) result.push(markdown)
   }
 
   const children = block.content || []
   for (const childId of children) {
-    const childBlock = blockMap[childId]?.value
+    const childBlock = getBlockValue(blockMap, childId)
     if (childBlock) {
       const childMarkdown = await convertBlockWithChildren(childBlock, blockMap, childId, depth + 1, postSlug, imageCounter)
-      if (childMarkdown) {
-        result.push(childMarkdown)
-      }
+      if (childMarkdown) result.push(childMarkdown)
     }
   }
 
@@ -144,81 +152,59 @@ async function convertBlockToMarkdown(
   switch (blockType) {
     case "header":
       return `# ${content}\n\n`
-
     case "sub_header":
       return `## ${content}\n\n`
-
     case "sub_sub_header":
       return `### ${content}\n\n`
-
     case "divider":
       return "---\n\n"
-
     case "code": {
       const language = block.properties?.language?.[0]?.[0] || ""
       const codeContent = getTextContent(block.properties?.title || []) || ""
       return `\`\`\`${language}\n${codeContent}\n\`\`\`\n\n`
     }
-
     case "bulleted_list":
     case "bulleted_list_item": {
       const indent = "  ".repeat(depth)
       return `${indent}- ${content}\n`
     }
-
     case "numbered_list":
     case "numbered_list_item": {
       const indent = "  ".repeat(depth)
       return `${indent}1. ${content}\n`
     }
-
     case "quote":
     case "quote_block": {
       const lines = content.split("\n")
       return lines.map((line: string) => `> ${line}`).join("\n") + "\n\n"
     }
-
     case "callout": {
       const emoji = block.format?.page_icon || ""
       return `> ${emoji} ${content}\n\n`
     }
-
     case "bookmark": {
       const link = block.properties?.link?.[0]?.[0] || ""
       const title = convertRichText(block.properties?.title || []) || link
       const description = convertRichText(block.properties?.description || [])
       const thumbnail = block.format?.bookmark_cover || ""
 
-      // Create a compact card-style bookmark
       let cardContent = "> "
-
-      // Add thumbnail if available (200px width)
       if (thumbnail) {
         cardContent += `<img src="${thumbnail}" alt="" width="200" />\n>\n> `
       }
-
       cardContent += `🔗 **[${title}](${link})**\n`
-
-      // Add description if available
       if (description) {
         cardContent += `>\n> ${description}\n`
       }
-
       return cardContent + "\n"
     }
-
-    case "image": {
+    case "image":
       return await convertImageBlock(block, postSlug, imageCounter)
-    }
-
     case "text":
     case "paragraph":
-    default: {
-      if (isEmpty && blockType !== "paragraph") {
-        return ""
-      }
+    default:
+      if (isEmpty && blockType !== "paragraph") return ""
       return `${content}\n\n`
-    }
   }
 }
 
@@ -229,66 +215,41 @@ async function convertImageBlock(
 ): Promise<string> {
   try {
     const imageUrl = extractImageUrl(block)
-
-    if (!imageUrl) {
-      console.warn(`Image block found but no URL could be extracted`)
-      return ""
-    }
+    if (!imageUrl) return ""
 
     const blockId = block.id || ""
-    if (!blockId) {
-      console.warn(`Image block found but no blockId, skipping`)
-      return ""
-    }
+    if (!blockId) return ""
 
     imageCounter.count++
-    const imageIndex = imageCounter.count
-
     const localPath = await downloadAndSaveImage({
       imageUrl,
-      imageIndex,
+      imageIndex: imageCounter.count,
       postSlug,
-      blockId
+      blockId,
     })
 
-    if (!localPath) {
-      console.warn(`Failed to download image ${imageIndex}, skipping`)
-      return ""
-    }
+    if (!localPath) return ""
 
     const caption = block.properties?.caption?.[0]?.[0] || getTextContent(block.properties?.title || []) || ""
     return `![${caption}](${localPath})\n\n`
   } catch (error) {
-    logError('Convert Image Block', error, { postSlug })
+    logError("Convert Image Block", error, { postSlug })
     return ""
   }
 }
 
 function extractImageUrl(block: NotionBlock): string {
-  if (block.format?.display_source) {
-    return block.format.display_source
-  }
-
-  if (block.properties?.source?.[0]?.[0]) {
-    return block.properties.source[0][0]
-  }
-
-  if (block.properties?.file?.[0]?.[1]?.[0]?.[1]) {
-    return block.properties.file[0][1][0][1]
-  }
-
-  if (block.format?.page_cover) {
-    return block.format.page_cover
-  }
-
+  if (block.format?.display_source) return block.format.display_source
+  if (block.properties?.source?.[0]?.[0]) return block.properties.source[0][0]
+  if (block.properties?.file?.[0]?.[1]?.[0]?.[1]) return block.properties.file[0][1][0][1]
+  if (block.format?.page_cover) return block.format.page_cover
   return ""
 }
-
 
 function convertRichText(textArray: any[]): string {
   if (!textArray) return ""
 
-  return textArray.map(item => {
+  return textArray.map((item) => {
     const [text, modifiers] = item
     let final = text
 
@@ -296,27 +257,30 @@ function convertRichText(textArray: any[]): string {
       for (const mod of modifiers) {
         const [type, param] = mod
         switch (type) {
-          case "b": final = `**${final}**`; break;
-          case "i": final = `*${final}*`; break;
-          case "s": final = `~~${final}~~`; break;
-          case "c": final = `\`${final}\``; break;
-          case "a": final = `[${final}](${param})`; break;
+          case "b": final = `**${final}**`; break
+          case "i": final = `*${final}*`; break
+          case "s": final = `~~${final}~~`; break
+          case "c": final = `\`${final}\``; break
+          case "a": final = `[${final}](${param})`; break
         }
       }
     }
+
     return final
   }).join("")
 }
 
 async function convertTable(block: NotionBlock, blockMap: BlockMap): Promise<string> {
   const children = block.content || []
-  const rows = children.map(id => blockMap[id]?.value).filter(b => b?.type === 'table_row')
+  const rows = children
+    .map((id) => getBlockValue(blockMap, id))
+    .filter((b) => b?.type === "table_row")
 
   if (rows.length === 0) return ""
 
   const columnOrder = block.format?.table_block_column_order || []
 
-  const rowStrings = rows.map(row => {
+  const rowStrings = rows.map((row) => {
     const cells = columnOrder.map((colId: string) => {
       const cellContent = row?.properties?.[colId] || []
       return convertRichText(cellContent)
@@ -324,8 +288,6 @@ async function convertTable(block: NotionBlock, blockMap: BlockMap): Promise<str
     return `| ${cells.join(" | ")} |`
   })
 
-  // Add separator after first row
   const separator = `| ${columnOrder.map(() => "---").join(" | ")} |`
-
   return [rowStrings[0], separator, ...rowStrings.slice(1)].join("\n") + "\n\n"
 }
