@@ -25,6 +25,10 @@ async function convertRecordMapToMarkdown(recordMap: RecordMap, pageId: string, 
 
   console.log(`    [DEBUG] Total blocks in recordMap: ${Object.keys(blockMap).length}`)
 
+  const sampleId = Object.keys(blockMap)[0]
+  console.log(`    [DEBUG] Sample block id: ${sampleId}`)
+  console.log(`    [DEBUG] Sample block raw: ${JSON.stringify(blockMap[sampleId], null, 2)}`)
+
   const rootBlockId = findRootBlockId(blockMap, pageId)
 
   if (!rootBlockId) {
@@ -41,7 +45,9 @@ async function convertRecordMapToMarkdown(recordMap: RecordMap, pageId: string, 
     console.log(`    [DEBUG] Root block type: ${rootBlock.type}`)
     console.log(`    [DEBUG] Root block has ${rootBlock.content?.length || 0} children`)
     const markdown = await convertBlockWithChildren(rootBlock, blockMap, rootBlockId, 0, postSlug, imageCounter)
-    if (markdown) blocks.push(markdown)
+    if (markdown) {
+      blocks.push(markdown)
+    }
   }
 
   return blocks.join("")
@@ -54,9 +60,13 @@ function normalizeBlockId(id: string): string {
 }
 
 function getBlockValue(blockMap: BlockMap, blockId: string): NotionBlock | undefined {
-  const entry = blockMap[blockId] as { value?: NotionBlock } | NotionBlock | undefined
+  const entry = blockMap[blockId] as any
   if (!entry) return undefined
-  if ("value" in entry && entry.value) return entry.value
+
+  if (entry.value) return entry.value
+  if (entry.block?.value) return entry.block.value
+  if (entry.block) return entry.block
+
   return entry as NotionBlock
 }
 
@@ -122,7 +132,9 @@ async function convertBlockWithChildren(
 
   if (block.type !== "page") {
     const markdown = await convertBlockToMarkdown(block, blockMap, depth, postSlug, imageCounter)
-    if (markdown) result.push(markdown)
+    if (markdown) {
+      result.push(markdown)
+    }
   }
 
   const children = block.content || []
@@ -130,7 +142,9 @@ async function convertBlockWithChildren(
     const childBlock = getBlockValue(blockMap, childId)
     if (childBlock) {
       const childMarkdown = await convertBlockWithChildren(childBlock, blockMap, childId, depth + 1, postSlug, imageCounter)
-      if (childMarkdown) result.push(childMarkdown)
+      if (childMarkdown) {
+        result.push(childMarkdown)
+      }
     }
   }
 
@@ -152,36 +166,45 @@ async function convertBlockToMarkdown(
   switch (blockType) {
     case "header":
       return `# ${content}\n\n`
+
     case "sub_header":
       return `## ${content}\n\n`
+
     case "sub_sub_header":
       return `### ${content}\n\n`
+
     case "divider":
       return "---\n\n"
+
     case "code": {
       const language = block.properties?.language?.[0]?.[0] || ""
       const codeContent = getTextContent(block.properties?.title || []) || ""
       return `\`\`\`${language}\n${codeContent}\n\`\`\`\n\n`
     }
+
     case "bulleted_list":
     case "bulleted_list_item": {
       const indent = "  ".repeat(depth)
       return `${indent}- ${content}\n`
     }
+
     case "numbered_list":
     case "numbered_list_item": {
       const indent = "  ".repeat(depth)
       return `${indent}1. ${content}\n`
     }
+
     case "quote":
     case "quote_block": {
       const lines = content.split("\n")
       return lines.map((line: string) => `> ${line}`).join("\n") + "\n\n"
     }
+
     case "callout": {
       const emoji = block.format?.page_icon || ""
       return `> ${emoji} ${content}\n\n`
     }
+
     case "bookmark": {
       const link = block.properties?.link?.[0]?.[0] || ""
       const title = convertRichText(block.properties?.title || []) || link
@@ -189,17 +212,23 @@ async function convertBlockToMarkdown(
       const thumbnail = block.format?.bookmark_cover || ""
 
       let cardContent = "> "
+
       if (thumbnail) {
         cardContent += `<img src="${thumbnail}" alt="" width="200" />\n>\n> `
       }
+
       cardContent += `🔗 **[${title}](${link})**\n`
+
       if (description) {
         cardContent += `>\n> ${description}\n`
       }
+
       return cardContent + "\n"
     }
+
     case "image":
       return await convertImageBlock(block, postSlug, imageCounter)
+
     case "text":
     case "paragraph":
     default:
@@ -257,11 +286,21 @@ function convertRichText(textArray: any[]): string {
       for (const mod of modifiers) {
         const [type, param] = mod
         switch (type) {
-          case "b": final = `**${final}**`; break
-          case "i": final = `*${final}*`; break
-          case "s": final = `~~${final}~~`; break
-          case "c": final = `\`${final}\``; break
-          case "a": final = `[${final}](${param})`; break
+          case "b":
+            final = `**${final}**`
+            break
+          case "i":
+            final = `*${final}*`
+            break
+          case "s":
+            final = `~~${final}~~`
+            break
+          case "c":
+            final = `\`${final}\``
+            break
+          case "a":
+            final = `[${final}](${param})`
+            break
         }
       }
     }
